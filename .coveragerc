@@ -1,0 +1,7 @@
+[run]
+branch = True
+source = arsenal
+omit = arsenal/tests/*,arsenal/openstack/*
+
+[report]
+ignore-errors = True
