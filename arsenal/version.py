@@ -15,13 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
 
-from arsenal import version
+import pbr.version
 
-
-def parse_args(argv, default_config_files=None):
-    cfg.CONF(argv[1:],
-             project='arsenal',
-             version=version.version_info.release_string(),
-             default_config_files=default_config_files)
+version_info = pbr.version.VersionInfo('arsenal')
