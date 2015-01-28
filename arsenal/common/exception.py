@@ -38,18 +38,9 @@ class ArsenalException(Exception):
 
     """
     msg_fmt = "An unknown exception occurred."
-    code = 500
-    headers = {}
-    safe = False
 
     def __init__(self, message=None, **kwargs):
         self.kwargs = kwargs
-
-        if 'code' not in self.kwargs:
-            try:
-                self.kwargs['code'] = self.code
-            except AttributeError:
-                pass
 
         if not message:
             try:
