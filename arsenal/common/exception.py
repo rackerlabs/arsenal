@@ -25,7 +25,14 @@ from arsenal.openstack.common import log as logging
 
 LOG = logging.getLogger(__name__)
 
+exc_log_opts = [
+    cfg.BoolOpt('fatal_exception_format_errors',
+                default=False,
+                help='Make exception message format errors fatal'),
+]
+
 CONF = cfg.CONF
+CONF.register_opts(exc_log_opts)
 
 
 # NOTE(ClifHouck): Basically a renamed NovaException from Openstack Nova.
