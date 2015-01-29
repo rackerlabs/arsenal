@@ -15,17 +15,24 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import logging
+
+from oslo.config import cfg
+
 from arsenal.common import config
-from arsenal.openstack.common import service
 from arsenal.openstack.common import log
+from arsenal.openstack.common import service
 
 LOG = log.getLogger(__name__)
+
 
 class ArsenalService(service.Service):
     def __init__(self):
         super(ArsenalService, self).__init__()
 
     def start(self):
+        LOG.info('Starting Arsenal service with the following options:')
+        cfg.CONF.log_opt_values(LOG, logging.INFO)
         super(ArsenalService, self).start()
         LOG.info('Started Arsenal service.')
 
@@ -33,7 +40,8 @@ class ArsenalService(service.Service):
         super(ArsenalService, self).stop()
         LOG.info('Stopped Arsenal service.')
 
+
 def prepare_service(argv=[]):
     config.parse_args(argv)
-    # TODO: Setup defaults.
+    # TODO(ClifHouck): Setup defaults.
     log.setup('arsenal')
