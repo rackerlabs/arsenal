@@ -30,7 +30,43 @@ from arsenal.openstack.common import log as logging
 
 
 LOG = logging.getLogger(__name__)
+
+
+opts = [
+    cfg.IntOpt('api_version',
+               default=1,
+               help='Version of Ironic API service endpoint.'),
+    cfg.StrOpt('api_endpoint',
+               help='URL for Ironic API endpoint.'),
+    cfg.StrOpt('admin_username',
+               help='Ironic keystone admin name'),
+    cfg.StrOpt('admin_password',
+               help='Ironic keystone admin password.'),
+    cfg.StrOpt('admin_auth_token',
+               help='Ironic keystone auth token.'),
+    cfg.StrOpt('admin_url',
+               help='Keystone public API endpoint.'),
+    cfg.StrOpt('client_log_level',
+               help='Log level override for ironicclient. Set this in '
+                    'order to override the global "default_log_levels", '
+                    '"verbose", and "debug" settings.'),
+    cfg.StrOpt('admin_tenant_name',
+               help='Ironic keystone tenant name.'),
+    cfg.IntOpt('api_max_retries',
+               default=60,
+               help='How many retries when a request does conflict.'),
+    cfg.IntOpt('api_retry_interval',
+               default=2,
+               help='How often to retry in seconds when a request '
+                    'does conflict'),
+    ]
+
+ironic_group = cfg.OptGroup(name='ironic',
+                            title='Ironic Options')
+
 CONF = cfg.CONF
+CONF.register_group(ironic_group)
+CONF.register_opts(opts, ironic_group)
 
 ironic = None
 
