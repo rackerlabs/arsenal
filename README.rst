@@ -1,9 +1,14 @@
 ===============================
-Arsenal (onmetal-image-scheduler)
+Arsenal (onmetal-image-scheduler) 
 ===============================
 
-Arsenal - The OnMetal image caching service
+Arsenal - The OnMetal image caching service 
 
+.. image:: https://travis-ci.org/rackerlabs/onmetal-image-scheduler.svg?branch=master
+    :target: https://travis-ci.org/rackerlabs/onmetal-image-scheduler
+
+About
+--------
 * Free software: Apache license
 * TODO - Documentation: http://docs.openstack.org/developer/onmetal-image-scheduler
 * Source: http://git.openstack.org/cgit/rackerlabs/onmetal-image-scheduler
