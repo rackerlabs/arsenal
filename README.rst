@@ -20,3 +20,4 @@ TODO
 - Handle placing an image on an unprovisioned node, and tagging the node in Ironic/Nova
 - Handle scheduling/decisioning around (flavor, image, available nodes)
 - Create a Nova scheduler/filter to prefer cached nodes over uncached ones
+- Find a way to measure cache hits versus misses
