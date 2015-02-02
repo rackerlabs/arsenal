@@ -21,3 +21,4 @@ TODO
 - Handle scheduling/decisioning around (flavor, image, available nodes)
 - Create a Nova scheduler/filter to prefer cached nodes over uncached ones
 - Find a way to measure cache hits versus misses
+- Pin requirements
