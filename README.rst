@@ -4,8 +4,8 @@ Arsenal (onmetal-image-scheduler)
 
 Arsenal - The OnMetal image caching service 
 
-.. image:: https://travis-ci.org/rackerlabs/onmetal-image-scheduler.svg?branch=master
-    :target: https://travis-ci.org/rackerlabs/onmetal-image-scheduler
+.. image:: https://travis-ci.org/rackerlabs/arsenal.svg?branch=master
+    :target: https://travis-ci.org/rackerlabs/arsenal
 
 About
 --------
