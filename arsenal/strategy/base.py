@@ -17,11 +17,6 @@
 
 import abc
 
-AVAILABLE_ACTIONS = [
-    "CacheNode",
-    "EjectNode"
-]
-
 
 class StrategyInput(object):
     """Base class for information destined for CachingStrategy objects."""
@@ -30,16 +25,21 @@ class StrategyInput(object):
 
 
 class NodeInput(StrategyInput):
-    def __init__(self, node_uuid, is_unprovisioned, is_cached, image_uuid):
+    def __init__(self, node_uuid, is_provisioned, is_cached, image_uuid):
         super(NodeInput, self).__init__()
         self.node_uuid = node_uuid
-        self.provisioned = is_unprovisioned
+        self.provisioned = is_provisioned
         self.cached = is_cached   
         self.cached_image_uuid = image_uuid
 
+    def can_cache(self):
+        # If the node is not provisioned and not already caching an image,
+        # then it is available for caching. 
+        return not self.provisioned and not self.cached
+
 
 class FlavorInput(StrategyInput):
-    def __init__(self, name, indentity_func):
+    def __init__(self, name, identity_func):
         super(FlavorInput, self).__init__()
         self.name = name
         self.is_flavor_node = identity_func
@@ -84,11 +84,13 @@ class EjectNode(StrategyAction):
                 )
 
 
-class CachingStrategy(abc.ABCMeta):
+class CachingStrategy(object):
     """Base object for objects that will implement a caching strategy for 
     Arsenal."""
 
-    @abstractmethod
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
     def update_current_state(self, nodes, images, flavors):
         """ update_current_state should be called periodically to allow the
         strategy to see what the current state of nodes, images, and flavors
@@ -96,7 +98,7 @@ class CachingStrategy(abc.ABCMeta):
         """
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def directives(self):
         """ directives will return a list of simple actions Arsenal should take 
         to fulfill this object's strategy, based on its view of the current
