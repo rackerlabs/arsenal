@@ -84,39 +84,37 @@ class SimpleProportionalStrategy(object):
         decision-making on data made available to it by Arsenal through 
         update_current_state."""
 
-        todo = []
-        
-        # Segregate nodes by flavor. 
-        nodes_by_flavor = {}
-        for flavor in self.current_flavors:
-            nodes_by_flavor[flavor.name] = []
-            for node in self.current_nodes:
-                if flavor.is_flavor_node(node):
-                    nodes_by_flavor[flavor.name].append(node)
+        def segregate_nodes(nodes, flavors):
+            """Segregate nodes by flavor."""
+            nodes_by_flavor = {}
+            for flavor in flavors:
+                nodes_by_flavor[flavor.name] = []
+                for node in nodes:
+                    if flavor.is_flavor_node(node):
+                        nodes_by_flavor[flavor.name].append(node)
+            return nodes_by_flavor
 
-        # For each flavor, check for cached nodes that have old or 
-        # retired images. Eject them, and mark them as uncached internally.
-        for flavor_name, flavor_nodes in nodes_by_flavor.iteritems():
-            for node in flavor_nodes:
+        def eject_nodes(nodes, image_uuids):
+            """For each flavor, check for cached nodes that have old or 
+            retired images. Eject them, and mark them as uncached internally."""
+            ejections = []
+            for node in nodes:
                 if (node.cached and 
-                    node.cached_image_uuid not in self.current_image_uuids):
-                        todo.append(EjectNode(node.node_uuid))
-                        # This marks the node internally so it's not 
-                        # considered currently cached anymore. We may issue
-                        # a CacheNode action below for the same node, 
-                        # but not necessarily.
-                        node.cached = False
+                    node.cached_image_uuid not in image_uuids):
+                    ejections.append(EjectNode(node.node_uuid))
+                    # This marks the node internally so it's not 
+                    # considered currently cached anymore. We may issue
+                    # a CacheNode action below for the same node, 
+                    # but not necessarily.
+                    node.cached = False
+            return ejections
 
-        # Once bad cached nodes have been ejected, determine the proportion
-        # of truly 'good' cached nodes. 
-        for flavor_name, flavor_nodes in nodes_by_flavor.iteritems():
-            print "SimpleProportionalStrategy.directives [%s,%d] " % (
-                    flavor_name, len(flavor_nodes))
-            num_nodes_needed = self.determine_minimum_nodes_needed_to_cache(flavor_nodes)
+        def cache_nodes(nodes, num_nodes_needed, images):
             nodes_available_for_caching = available_nodes(flavor_nodes)
             print "num_nodes_needed: %d, nodes_available_for_caching: %d" % (
                     num_nodes_needed, len(nodes_available_for_caching))
 
+            nodes_to_cache = []
             for n in range(0, num_nodes_needed):
                 # If we're not meeting or exceeding 
                 # our proportion goal, schedule (node, image) pairs to cache 
@@ -125,8 +123,24 @@ class SimpleProportionalStrategy(object):
                 rand_node_pick = random.randrange(len(nodes_available_for_caching))
                 node = nodes_available_for_caching[rand_node_pick]
                 del nodes_available_for_caching[rand_node_pick]
-                image = self.current_images[random.randrange(len(self.current_images))]
-                todo.append(CacheNode(node.node_uuid, image.uuid))
+                image = random.choice(images)
+                nodes_to_cache.append(CacheNode(node.node_uuid, image.uuid))
+            return nodes_to_cache
+
+        todo = []
+
+        # Eject nodes.
+        todo.extend(eject_nodes(self.current_nodes, self.current_images))
+
+        # Once bad cached nodes have been ejected, determine the proportion
+        # of truly 'good' cached nodes. 
+        nodes_by_flavor = segregate_nodes(self.current_nodes, self.current_flavors)
+        for flavor_name, flavor_nodes in nodes_by_flavor.iteritems():
+            print "SimpleProportionalStrategy.directives [%s,%d] " % (
+                    flavor_name, len(flavor_nodes))
+            num_nodes_needed = self.determine_minimum_nodes_needed_to_cache(flavor_nodes)
+            nodes_to_cache = cache_nodes(flavor_nodes, num_nodes_needed, self.current_images)
+            todo.extend(nodes_to_cache)
 
         return todo
 

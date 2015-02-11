@@ -137,7 +137,12 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
                         cache_directive_count)))
 
     def test_node_ejection_behavior(self):
+        """Perform the ejection test for all test environments."""
+        for env_name, env in self.environments.iteritems():
+            print "Testing ejection behavior for '%s'." % env_name
+            self._ejection_test(env)
+
+    def _ejection_test(self, env):
         """Are we ejecting nodes whose images are no longer in the current 
         image list?"""
-        # self.assertTrue(False, "TODO")
         pass
