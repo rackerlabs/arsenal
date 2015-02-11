@@ -79,9 +79,10 @@ class CacheNode(StrategyAction):
 class EjectNode(StrategyAction):
     def __init__(self, node_uuid):
         super(EjectNode, self).__init__(
-                    formart_string="{0}: Eject node '{1}' from cache.",
+                    format_string="{0}: Eject node '{1}' from cache.",
                     format_attrs=['name', 'node_uuid']
                 )
+        self.node_uuid = node_uuid
 
 
 class CachingStrategy(object):
