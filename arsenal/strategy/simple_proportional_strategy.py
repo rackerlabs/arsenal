@@ -136,6 +136,17 @@ class SimpleProportionalStrategy(object):
                 nodes_to_cache.append(sb.CacheNode(node.node_uuid, image.uuid))
             return nodes_to_cache
 
+        def min_nodes_to_cache(nodes, percentage_to_cache):
+            num_nodes_cached = len(filter(lambda node: node.cached, nodes))
+            num_should_cache = how_many_nodes_should_cache(nodes,
+                                                           percentage_to_cache)
+            num_needed = num_should_cache - num_nodes_cached
+            return num_needed
+
+        def how_many_nodes_should_cache(nodes, percentage_to_cache):
+            return int(math.ceil(
+                0.01 * percentage_to_cache * len(available_nodes(nodes))))
+
         todo = []
 
         # Eject nodes.
@@ -148,22 +159,13 @@ class SimpleProportionalStrategy(object):
         for flavor_name, flavor_nodes in nodes_by_flavor.iteritems():
             print("SimpleProportionalStrategy.directives [%s,%d] " % (
                 flavor_name, len(flavor_nodes)))
-            num_nodes_needed = self.min_nodes_to_cache(flavor_nodes)
+            num_nodes_needed = min_nodes_to_cache(flavor_nodes,
+                                                  self.percentage_to_cache)
             nodes_to_cache = cache_nodes(flavor_nodes, num_nodes_needed,
                                          self.current_images)
             todo.extend(nodes_to_cache)
 
         return todo
-
-    def min_nodes_to_cache(self, nodes):
-        num_nodes_cached = len(filter(lambda node: node.cached, nodes))
-        num_should_cache = self.how_many_nodes_should_cache(nodes)
-        num_needed = num_should_cache - num_nodes_cached
-        return num_needed
-
-    def how_many_nodes_should_cache(self, nodes):
-        return int(math.ceil(
-            0.01 * self.percentage_to_cache * len(available_nodes(nodes))))
 
     def find_image_differences(self, new_image_list):
         """Find differences between current image state and
