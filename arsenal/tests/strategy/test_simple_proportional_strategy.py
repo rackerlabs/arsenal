@@ -47,6 +47,8 @@ TEST_IMAGES = [
     sb.ImageInput("Windows", "eeee")
 ]
 
+INVALID_IMAGE = sb.ImageInput("Windows95", "abcd")
+
 
 class TestSimpleProportionalStrategy(test_base.TestCase):
 
@@ -69,14 +71,17 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         }
 
         # Some programmatically constructed. With random provision and
-        # cached states.
+        # cached states. Also, some nodes will have invalid images.
         node_counts = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]
         flavor_prefixes = ['i', 'c', 'm']
+        images_with_invalid = []
+        images_with_invalid.extend(TEST_IMAGES)
+        images_with_invalid.append(INVALID_IMAGE)
         for n_count in node_counts:
             environment = {'nodes': []}
             for n in range(n_count):
                 flavor_pick = random.choice(flavor_prefixes)
-                image_pick_uuid = random.choice(TEST_IMAGES).uuid
+                image_pick_uuid = random.choice(images_with_invalid).uuid
                 environment['nodes'].append(
                     sb.NodeInput("%s-%d" % (flavor_pick, n),
                                  random.randint(0, 1),
@@ -88,14 +93,6 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         for env_name, env_dict in self.environments.iteritems():
             env_dict['flavors'] = TEST_FLAVORS
             env_dict['images'] = TEST_IMAGES
-
-    def test_determine_minimum_nodes_needed_to_cache(self):
-        # self.assertTrue(False, "TODO(ClifHouck)")
-        pass
-
-    def test_determine_number_of_nodes_that_should_cache(self):
-        # self.assertTrue(False, "TODO(ClifHouck)")
-        pass
 
     def test_proportion_goal_versus_several_percentages(self):
         print("Starting test_proportion_goal_versus_several_percentages.")
@@ -150,4 +147,19 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         """Are we ejecting nodes whose images are no longer in the current
         image list?
         """
-        pass
+        strategy = sps.SimpleProportionalStrategy()
+        strategy.update_current_state(**env)
+        directives = strategy.directives()
+        ejection_directives = filter(
+            lambda direct: isinstance(direct, sb.EjectNode),
+            directives)
+        ejected_node_uuids = sps.build_attribute_set(ejection_directives,
+                                                     'node_uuid')
+        for node in env['nodes']:
+            # Make sure that cached nodes with invalid images are ejected.
+            if node.cached_image_uuid == INVALID_IMAGE.uuid and node.cached:
+                self.assertIn(node.node_uuid,
+                              ejected_node_uuids,
+                              ("A node with an invalid image UUID was not "
+                               "ejected from the cache. Node UUID: %s" % (
+                                   node.node_uuid)))
