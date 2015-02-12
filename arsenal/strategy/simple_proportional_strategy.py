@@ -21,7 +21,7 @@ import random
 from oslo.config import cfg
 
 from arsenal.openstack.common import log
-from arsenal.strategy.base import * 
+from arsenal.strategy import base as sb
 
 random.seed()
 
@@ -29,29 +29,35 @@ LOG = log.getLogger(__name__)
 
 CONF = cfg.CONF
 
+
 def build_attribute_set(items, attr_name):
-    """Build a set off of a particular attribute of a list of 
+    """Build a set off of a particular attribute of a list of
     objects. Adds 'None' to the set if one or more of the
     objects in items is missing the attribute specified by
-    attr_name."""
+    attr_name.
+    """
     attribute_set = set()
     for item in items:
         attribute_set.add(getattr(item, attr_name, None))
     return attribute_set
 
+
 def build_attribute_dict(items, attr_name):
-    """ Build a dict from a list of items and one of their attributes to make
-    querying the collection easier."""
+    """Build a dict from a list of items and one of their attributes to make
+    querying the collection easier.
+    """
     attr_dict = {}
     for item in items:
         attr_dict[getattr(item, attr_name)] = item
     return attr_dict
 
+
 def available_nodes(nodes):
     return filter(lambda node: node.can_cache(), nodes)
 
+
 class SimpleProportionalStrategy(object):
-    def __init__(self, percentage_to_cache = 25):
+    def __init__(self, percentage_to_cache=25):
         self.percentage_to_cache = percentage_to_cache
         self.current_flavors = []
         self.current_images = []
@@ -65,7 +71,7 @@ class SimpleProportionalStrategy(object):
         self.log_flavor_differences(self.flavor_diff)
         self.current_flavors = flavors
 
-        # Image differences are important because changed or retired 
+        # Image differences are important because changed or retired
         # images should be ejected from the cache.
         self.image_diff = self.find_image_differences(images)
         self.log_image_differences(self.image_diff)
@@ -75,14 +81,15 @@ class SimpleProportionalStrategy(object):
         # We don't compare old node state versus new, because that would be
         # a relatively large and complicated task. Instead, we only rely on
         # the current state of nodes to inform ourselves whether we're meeting
-        # our stated goals or not. 
+        # our stated goals or not.
         self.current_nodes = nodes
-        
+
     def directives(self):
-        """Return a list actions that should be taken by Arsenal in order to 
-        fulfill the strategy implemented by this object. Bases 
-        decision-making on data made available to it by Arsenal through 
-        update_current_state."""
+        """Return a list actions that should be taken by Arsenal in order to
+        fulfill the strategy implemented by this object. Bases
+        decision-making on data made available to it by Arsenal through
+        update_current_state.
+        """
 
         def segregate_nodes(nodes, flavors):
             """Segregate nodes by flavor."""
@@ -95,36 +102,38 @@ class SimpleProportionalStrategy(object):
             return nodes_by_flavor
 
         def eject_nodes(nodes, image_uuids):
-            """For each flavor, check for cached nodes that have old or 
-            retired images. Eject them, and mark them as uncached internally."""
+            """For each flavor, check for cached nodes that have old or
+            retired images. Eject them, and mark them as uncached internally.
+            """
             ejections = []
             for node in nodes:
-                if (node.cached and 
-                    node.cached_image_uuid not in image_uuids):
-                    ejections.append(EjectNode(node.node_uuid))
-                    # This marks the node internally so it's not 
+                if (node.cached and node.cached_image_uuid not in image_uuids):
+                    ejections.append(sb.EjectNode(node.node_uuid))
+                    # This marks the node internally so it's not
                     # considered currently cached anymore. We may issue
-                    # a CacheNode action below for the same node, 
+                    # a CacheNode action below for the same node,
                     # but not necessarily.
                     node.cached = False
             return ejections
 
         def cache_nodes(nodes, num_nodes_needed, images):
             nodes_available_for_caching = available_nodes(flavor_nodes)
-            print "num_nodes_needed: %d, nodes_available_for_caching: %d" % (
-                    num_nodes_needed, len(nodes_available_for_caching))
+            print("num_nodes_needed: %d, nodes_available_for_caching: %d" % (
+                  num_nodes_needed, len(nodes_available_for_caching)))
 
             nodes_to_cache = []
             for n in range(0, num_nodes_needed):
-                # If we're not meeting or exceeding 
-                # our proportion goal, schedule (node, image) pairs to cache 
+                # If we're not meeting or exceeding
+                # our proportion goal, schedule (node, image) pairs to cache
                 # randomly until we would meet our proportion goal.
-                # TODO(ClifHouck): This selection step can probably be improved.
-                rand_node_pick = random.randrange(len(nodes_available_for_caching))
+                # TODO(ClifHouck): This selection step can probably be
+                # improved.
+                rand_node_pick = random.randrange(
+                    len(nodes_available_for_caching))
                 node = nodes_available_for_caching[rand_node_pick]
                 del nodes_available_for_caching[rand_node_pick]
                 image = random.choice(images)
-                nodes_to_cache.append(CacheNode(node.node_uuid, image.uuid))
+                nodes_to_cache.append(sb.CacheNode(node.node_uuid, image.uuid))
             return nodes_to_cache
 
         todo = []
@@ -133,32 +142,35 @@ class SimpleProportionalStrategy(object):
         todo.extend(eject_nodes(self.current_nodes, self.current_images))
 
         # Once bad cached nodes have been ejected, determine the proportion
-        # of truly 'good' cached nodes. 
-        nodes_by_flavor = segregate_nodes(self.current_nodes, self.current_flavors)
+        # of truly 'good' cached nodes.
+        nodes_by_flavor = segregate_nodes(self.current_nodes,
+                                          self.current_flavors)
         for flavor_name, flavor_nodes in nodes_by_flavor.iteritems():
-            print "SimpleProportionalStrategy.directives [%s,%d] " % (
-                    flavor_name, len(flavor_nodes))
-            num_nodes_needed = self.determine_minimum_nodes_needed_to_cache(flavor_nodes)
-            nodes_to_cache = cache_nodes(flavor_nodes, num_nodes_needed, self.current_images)
+            print("SimpleProportionalStrategy.directives [%s,%d] " % (
+                flavor_name, len(flavor_nodes)))
+            num_nodes_needed = self.min_nodes_to_cache(flavor_nodes)
+            nodes_to_cache = cache_nodes(flavor_nodes, num_nodes_needed,
+                                         self.current_images)
             todo.extend(nodes_to_cache)
 
         return todo
 
-    def determine_minimum_nodes_needed_to_cache(self, nodes):
+    def min_nodes_to_cache(self, nodes):
         num_nodes_cached = len(filter(lambda node: node.cached, nodes))
-        num_should_cache = self.determine_number_of_nodes_that_should_cache(nodes)
+        num_should_cache = self.how_many_nodes_should_cache(nodes)
         num_needed = num_should_cache - num_nodes_cached
         return num_needed
 
-    def determine_number_of_nodes_that_should_cache(self, nodes):
-        return int(math.ceil(0.01 * self.percentage_to_cache * len(available_nodes(nodes))))
+    def how_many_nodes_should_cache(self, nodes):
+        return int(math.ceil(
+            0.01 * self.percentage_to_cache * len(available_nodes(nodes))))
 
     def find_image_differences(self, new_image_list):
         """Find differences between current image state and
         previous. Did anything change? Which images specifically changed
         their UUIDs? Are some images no longer present at all?
-        
-        Returns a dictionary of three attributes: 'new', 'changed', and 
+
+        Returns a dictionary of three attributes: 'new', 'changed', and
         'retired'. Each attribute is a set of image names.
         'new' - Totally new image names.
         'changed' - Images with the same name, but their UUID has changed.
@@ -185,23 +197,23 @@ class SimpleProportionalStrategy(object):
             if new_image_obj.uuid != old_image_obj.uuid:
                 changed_images.add(name)
 
-        return { 'new': new_images, 
-                 'changed': changed_images,
-                 'retired': retired_images }
+        return {'new': new_images,
+                'changed': changed_images,
+                'retired': retired_images}
 
     def log_image_differences(self, image_differences):
         for image_name in image_differences['new']:
             LOG.info("SimpleProportionalStrategy: A new image has been "
-                      "detected. Image name: '%(name)s'", 
-                      { 'name': image_name })
+                     "detected. Image name: '%(name)s'",
+                     {'name': image_name})
         for image_name in image_differences['changed']:
             LOG.info("SimpleProportionalStrategy: A changed image has been "
-                      "detected. Image name: '%(name)s'", 
-                      { 'name': image_name })
+                     "detected. Image name: '%(name)s'",
+                     {'name': image_name})
         for image_name in image_differences['retired']:
             LOG.info("SimpleProportionalStrategy: A new image has been "
-                      "detected. Image name: '%(name)s'", 
-                      { 'name': image_name })
+                     "detected. Image name: '%(name)s'",
+                     {'name': image_name})
 
     def find_flavor_differences(self, new_flavors):
         """Do a diff on flavors last seen and new set of flavors.
@@ -214,25 +226,26 @@ class SimpleProportionalStrategy(object):
         'new' - New flavor names.
         'retired' - Flavor names no longer present.
         All valid keys will map to sets of image names
-        as strings."""
-        previous_flavor_names = build_attribute_set(self.current_flavors, 
+        as strings.
+        """
+        previous_flavor_names = build_attribute_set(self.current_flavors,
                                                     'name')
         new_flavor_names = build_attribute_set(new_flavors, 'name')
 
         totally_new_flavors = new_flavor_names.difference(
-                                previous_flavor_names)
+            previous_flavor_names)
         retired_flavors = previous_flavor_names.difference(new_flavor_names)
         return {'new': totally_new_flavors, 'retired': retired_flavors}
 
     def log_flavor_differences(self, flavor_differences):
         for flavor_name in flavor_differences['new']:
             LOG.info("SimpleProportionalStrategy: A new flavor has been "
-                      "detected. Flavor name: '%(name)s'", 
-                      { 'name': flavor_name })
+                     "detected. Flavor name: '%(name)s'",
+                     {'name': flavor_name})
 
         for flavor_name in flavor_differences['retired']:
             LOG.info("SimpleProportionalStrategy: A flavor has been retired. "
-                      "Flavor name: '%s(name)'",
-                      {'name': flavor_name})
+                     "Flavor name: '%s(name)'",
+                     {'name': flavor_name})
 
-CachingStrategy.register(SimpleProportionalStrategy)
+sb.CachingStrategy.register(SimpleProportionalStrategy)
