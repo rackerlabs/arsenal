@@ -17,6 +17,8 @@
 
 import abc
 
+import six
+
 
 class StrategyInput(object):
     """Base class for information destined for CachingStrategy objects."""
@@ -29,12 +31,12 @@ class NodeInput(StrategyInput):
         super(NodeInput, self).__init__()
         self.node_uuid = node_uuid
         self.provisioned = is_provisioned
-        self.cached = is_cached   
+        self.cached = is_cached
         self.cached_image_uuid = image_uuid
 
     def can_cache(self):
         # If the node is not provisioned and not already caching an image,
-        # then it is available for caching. 
+        # then it is available for caching.
         return not self.provisioned and not self.cached
 
 
@@ -66,12 +68,13 @@ class StrategyAction(object):
 
 class CacheNode(StrategyAction):
     """Contains all the information necessary to cache a specific
-    image on a specific node."""
+    image on a specific node.
+    """
+
     def __init__(self, node_uuid, image_uuid):
         super(CacheNode, self).__init__(
-                    format_string="{0}: Cache image '{1}' on node '{0}'.",
-                    format_attrs=['name', 'image_uuid', 'node_uuid'] 
-                )
+            format_string="{0}: Cache image '{1}' on node '{0}'.",
+            format_attrs=['name', 'image_uuid', 'node_uuid'])
         self.node_uuid = node_uuid
         self.image_uuid = image_uuid
 
@@ -79,29 +82,29 @@ class CacheNode(StrategyAction):
 class EjectNode(StrategyAction):
     def __init__(self, node_uuid):
         super(EjectNode, self).__init__(
-                    format_string="{0}: Eject node '{1}' from cache.",
-                    format_attrs=['name', 'node_uuid']
-                )
+            format_string="{0}: Eject node '{1}' from cache.",
+            format_attrs=['name', 'node_uuid'])
         self.node_uuid = node_uuid
 
 
+@six.add_metaclass(abc.ABCMeta)
 class CachingStrategy(object):
-    """Base object for objects that will implement a caching strategy for 
-    Arsenal."""
-
-    __metaclass__ = abc.ABCMeta
+    """Base object for objects that will implement a caching strategy for
+    Arsenal.
+    """
 
     @abc.abstractmethod
     def update_current_state(self, nodes, images, flavors):
-        """ update_current_state should be called periodically to allow the
+        """update_current_state should be called periodically to allow the
         strategy to see what the current state of nodes, images, and flavors
-        are in the system.  
+        are in the system.
         """
         pass
 
     @abc.abstractmethod
     def directives(self):
-        """ directives will return a list of simple actions Arsenal should take 
+        """directives will return a list of simple actions Arsenal should take
         to fulfill this object's strategy, based on its view of the current
-        system state. """
+        system state.
+        """
         pass
