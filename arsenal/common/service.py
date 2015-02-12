@@ -20,6 +20,7 @@ import logging
 from oslo.config import cfg
 
 from arsenal.common import config
+from arsenal.director import scheduler
 from arsenal.openstack.common import log
 from arsenal.openstack.common import service
 
@@ -29,15 +30,17 @@ LOG = log.getLogger(__name__)
 class ArsenalService(service.Service):
     def __init__(self):
         super(ArsenalService, self).__init__()
+        self.scheduler = scheduler.DirectorScheduler()
 
     def start(self):
         LOG.info('Starting Arsenal service with the following options:')
         cfg.CONF.log_opt_values(LOG, logging.INFO)
         super(ArsenalService, self).start()
         LOG.info('Started Arsenal service.')
+        self.tg.add_dynamic_timer(self.scheduler.periodic_tasks, context={})
 
     def stop(self):
-        super(ArsenalService, self).stop()
+        super(ArsenalService, self).stop(graceful=True)
         LOG.info('Stopped Arsenal service.')
 
 
