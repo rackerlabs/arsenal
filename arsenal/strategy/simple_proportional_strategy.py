@@ -23,8 +23,6 @@ from oslo.config import cfg
 from arsenal.openstack.common import log
 from arsenal.strategy import base as sb
 
-random.seed()
-
 LOG = log.getLogger(__name__)
 
 CONF = cfg.CONF
@@ -54,6 +52,63 @@ def build_attribute_dict(items, attr_name):
 
 def available_nodes(nodes):
     return filter(lambda node: node.can_cache(), nodes)
+
+
+def segregate_nodes(nodes, flavors):
+    """Segregate nodes by flavor."""
+    nodes_by_flavor = {}
+    for flavor in flavors:
+        nodes_by_flavor[flavor.name] = []
+        for node in nodes:
+            if flavor.is_flavor_node(node):
+                nodes_by_flavor[flavor.name].append(node)
+    return nodes_by_flavor
+
+
+def eject_nodes(nodes, image_uuids):
+    """For each flavor, check for cached nodes that have old or
+    retired images. Eject them, and mark them as uncached internally.
+    """
+    ejections = []
+    for node in nodes:
+        if (node.cached and node.cached_image_uuid not in image_uuids):
+            ejections.append(sb.EjectNode(node.node_uuid))
+            # This marks the node internally so it's not
+            # considered currently cached anymore. The strategy may issue
+            # a CacheNode action for the same node, but not necessarily.
+            node.cached = False
+    return ejections
+
+
+def cache_nodes(nodes, num_nodes_needed, images):
+    nodes_available_for_caching = available_nodes(nodes)
+    print("num_nodes_needed: %d, nodes_available_for_caching: %d" % (
+          num_nodes_needed, len(nodes_available_for_caching)))
+
+    # If we're not meeting or exceeding
+    # our proportion goal, schedule (node, image) pairs to cache
+    # randomly until we would meet our proportion goal.
+    # TODO(ClifHouck): This selection step can probably be
+    # improved.
+    nodes_to_cache = []
+    random.shuffle(nodes_available_for_caching)
+    for n in range(0, num_nodes_needed):
+        node = nodes_available_for_caching.pop()
+        image = random.choice(images)
+        nodes_to_cache.append(sb.CacheNode(node.node_uuid, image.uuid))
+    return nodes_to_cache
+
+
+def min_nodes_to_cache(nodes, percentage_to_cache):
+    num_nodes_cached = len(filter(lambda node: node.cached, nodes))
+    num_should_cache = how_many_nodes_should_cache(nodes, percentage_to_cache)
+    num_needed = num_should_cache - num_nodes_cached
+    return num_needed
+
+
+def how_many_nodes_should_cache(nodes, percentage_to_cache):
+    return int(math.ceil(
+        0.01 * percentage_to_cache * len(available_nodes(nodes))))
 
 
 class SimpleProportionalStrategy(object):
@@ -90,63 +145,6 @@ class SimpleProportionalStrategy(object):
         decision-making on data made available to it by Arsenal through
         update_current_state.
         """
-
-        def segregate_nodes(nodes, flavors):
-            """Segregate nodes by flavor."""
-            nodes_by_flavor = {}
-            for flavor in flavors:
-                nodes_by_flavor[flavor.name] = []
-                for node in nodes:
-                    if flavor.is_flavor_node(node):
-                        nodes_by_flavor[flavor.name].append(node)
-            return nodes_by_flavor
-
-        def eject_nodes(nodes, image_uuids):
-            """For each flavor, check for cached nodes that have old or
-            retired images. Eject them, and mark them as uncached internally.
-            """
-            ejections = []
-            for node in nodes:
-                if (node.cached and node.cached_image_uuid not in image_uuids):
-                    ejections.append(sb.EjectNode(node.node_uuid))
-                    # This marks the node internally so it's not
-                    # considered currently cached anymore. We may issue
-                    # a CacheNode action below for the same node,
-                    # but not necessarily.
-                    node.cached = False
-            return ejections
-
-        def cache_nodes(nodes, num_nodes_needed, images):
-            nodes_available_for_caching = available_nodes(flavor_nodes)
-            print("num_nodes_needed: %d, nodes_available_for_caching: %d" % (
-                  num_nodes_needed, len(nodes_available_for_caching)))
-
-            nodes_to_cache = []
-            for n in range(0, num_nodes_needed):
-                # If we're not meeting or exceeding
-                # our proportion goal, schedule (node, image) pairs to cache
-                # randomly until we would meet our proportion goal.
-                # TODO(ClifHouck): This selection step can probably be
-                # improved.
-                rand_node_pick = random.randrange(
-                    len(nodes_available_for_caching))
-                node = nodes_available_for_caching[rand_node_pick]
-                del nodes_available_for_caching[rand_node_pick]
-                image = random.choice(images)
-                nodes_to_cache.append(sb.CacheNode(node.node_uuid, image.uuid))
-            return nodes_to_cache
-
-        def min_nodes_to_cache(nodes, percentage_to_cache):
-            num_nodes_cached = len(filter(lambda node: node.cached, nodes))
-            num_should_cache = how_many_nodes_should_cache(nodes,
-                                                           percentage_to_cache)
-            num_needed = num_should_cache - num_nodes_cached
-            return num_needed
-
-        def how_many_nodes_should_cache(nodes, percentage_to_cache):
-            return int(math.ceil(
-                0.01 * percentage_to_cache * len(available_nodes(nodes))))
-
         todo = []
 
         # Eject nodes.
@@ -249,5 +247,3 @@ class SimpleProportionalStrategy(object):
             LOG.info("SimpleProportionalStrategy: A flavor has been retired. "
                      "Flavor name: '%s(name)'",
                      {'name': flavor_name})
-
-sb.CachingStrategy.register(SimpleProportionalStrategy)

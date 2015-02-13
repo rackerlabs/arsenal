@@ -26,8 +26,6 @@ from arsenal.strategy import base as sb
 from arsenal.strategy import simple_proportional_strategy as sps
 from arsenal.tests import base as test_base
 
-random.seed()
-
 
 def name_starts_with(node, letter):
     return node.node_uuid[0] == letter
