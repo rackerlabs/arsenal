@@ -20,6 +20,7 @@ import random
 
 from oslo.config import cfg
 
+from arsenal.common import exception
 from arsenal.openstack.common import log
 from arsenal.strategy import base as sb
 
@@ -111,8 +112,18 @@ def how_many_nodes_should_cache(nodes, percentage_to_cache):
         0.01 * percentage_to_cache * len(available_nodes(nodes))))
 
 
+class InvalidPercentageError(exception.ArsenalException):
+    msg_fmt = ("An invalid percentage was specified. Percentages should be "
+               "less than or equal to 100, and greater than or equal to 0. "
+               "Got '%(percentage)f'.")
+
+
 class SimpleProportionalStrategy(object):
     def __init__(self, percentage_to_cache=25):
+        # Clamp the percentage to reasonable values.
+        if percentage_to_cache < 0 or percentage_to_cache > 100:
+            raise InvalidPercentageError(percentage=percentage_to_cache)
+
         self.percentage_to_cache = percentage_to_cache
         self.current_flavors = []
         self.current_images = []
