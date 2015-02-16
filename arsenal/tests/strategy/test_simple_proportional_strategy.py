@@ -161,3 +161,22 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
                               ("A node with an invalid image UUID was not "
                                "ejected from the cache. Node UUID: %s" % (
                                    node.node_uuid)))
+
+    def test_percentage_clamp(self):
+        """Make sure valid percentages are valid, and invalid percentages
+        raise exceptions.
+        """
+        valid_percentages = [0, 1, 2.5, 5.011, 10, 15, 99.99, 100]
+        invalid_percentages = [-1, -5, -0.1, 101, 100.001]
+        for percentage in valid_percentages:
+            try:
+                sps.SimpleProportionalStrategy(percentage)
+            except sps.InvalidPercentageError:
+                self.assertTrue(False, (
+                    "SimpleProportionalStrategy raised InvalidPercentageError "
+                    "for %f inappropriately." % (percentage)))
+
+        for percentage in invalid_percentages:
+            self.assertRaises(sps.InvalidPercentageError,
+                              sps.SimpleProportionalStrategy,
+                              percentage)
