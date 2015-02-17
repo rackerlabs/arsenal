@@ -20,7 +20,9 @@ Test the simple proportional caching strategy to determine whether its
 behavior appears to be correct.
 """
 
+from __future__ import division
 import random
+
 
 from arsenal.strategy import base as sb
 from arsenal.strategy import simple_proportional_strategy as sps
@@ -76,15 +78,23 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         images_with_invalid.extend(TEST_IMAGES)
         images_with_invalid.append(INVALID_IMAGE)
         for n_count in node_counts:
+            print "Building random nodes for random-nodes(%d)" % n_count
             environment = {'nodes': []}
             for n in range(n_count):
                 flavor_pick = random.choice(flavor_prefixes)
                 image_pick_uuid = random.choice(images_with_invalid).uuid
+                provisioned_choice = random.choice([False, True])
+
+                cache_choice = False
+                if not provisioned_choice:
+                    cache_choice = random.choice([False, True])
+
                 environment['nodes'].append(
                     sb.NodeInput("%s-%d" % (flavor_pick, n),
-                                 random.randint(0, 1),
-                                 random.randint(0, 1),
+                                 provisioned_choice,
+                                 cache_choice,
                                  image_pick_uuid))
+                print(str(environment['nodes'][-1]))
             self.environments["random-nodes(%d)" % n_count] = environment
 
         # Defaults
@@ -94,12 +104,12 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
 
     def test_proportion_goal_versus_several_percentages(self):
         print("Starting test_proportion_goal_versus_several_percentages.")
-        percentages = [0, 10, 25, 50, 75, 90, 100]
+        percentages = [0, 0.1, 0.25, 0.50, 0.75, 0.90, 1]
         for percent in percentages:
             print("Trying %d percent." % percent)
-            self._test_proportion_goal(percent)
+            self._test_proportion_goal_versus_environment(percent)
 
-    def _test_proportion_goal(self, test_percentage=50):
+    def _test_proportion_goal_versus_environment(self, test_percentage=0.50):
         """Test that strategy goals are always being met by directives output.
         Are we always caching at least enough to hit our proportion goal.
         """
@@ -108,32 +118,45 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
             print("Testing %s environment." % env_name)
             strategy.update_current_state(**env)
             directives = strategy.directives()
-            available_node_count = len(sps.available_nodes(env['nodes']))
-            cached_node_count = len(filter(lambda node: node.cached,
-                                           env['nodes']))
-            cache_directive_count = len(filter(
-                lambda directive: isinstance(directive, sb.CacheNode),
-                directives))
-            self.assertTrue(cache_directive_count <= available_node_count,
-                            ("There shouldn't be more cache directives than "
-                             "there are nodes available to cache."))
+            print("Directives:")
+            for directive in directives:
+                print(str(directive))
+            for flavor in env['flavors']:
+                self._test_proportion_goal_versus_flavor(strategy, directives,
+                        env['nodes'], flavor)
 
-            total_percent_cached = 0
-            if available_node_count != 0:
-                total_percent_cached = (
-                    cache_directive_count + cached_node_count) / (
-                    available_node_count)
-                self.assertTrue((
-                    total_percent_cached >= test_percentage / 100), (
-                    "The number of cache directives emitted by the strategy "
-                    "does not fulfill the goal! Total percent to be "
-                    "cached: %f, expected %f" % (total_percent_cached,
-                                                 test_percentage / 100)))
-            else:
-                self.assertTrue(cache_directive_count == 0, (
-                    "Since there are no available nodes to cache, the number "
-                    "of cache directives should be zero, but got %d" % (
-                        cache_directive_count)))
+    def _test_proportion_goal_versus_flavor(self, strat, directives, nodes, 
+            flavor):
+        print("Testing flavor %s." % flavor.name)
+        flavor_nodes = filter(lambda node: flavor.is_flavor_node(node), nodes)
+        unprovisioned_node_count = len(sps.unprovisioned_nodes(flavor_nodes))
+        available_node_count = len(sps.nodes_available_for_caching(
+            flavor_nodes))
+        cached_node_count = len(filter(lambda node: node.cached, flavor_nodes))
+        cache_directive_count = len(filter(
+            lambda directive: (isinstance(directive, sb.CacheNode) and 
+                flavor.is_flavor_node(
+                    sb.NodeInput(directive.node_uuid))), directives))
+        self.assertTrue(cache_directive_count <= available_node_count,
+            ("There shouldn't be more cache directives than "
+             "there are nodes available to cache."))
+
+        total_percent_cached = 0
+        if unprovisioned_node_count != 0 and available_node_count != 0:
+            total_percent_cached = (
+                cache_directive_count + cached_node_count) / (
+                unprovisioned_node_count)
+            self.assertTrue((
+                total_percent_cached >= strat.percentage_to_cache), (
+                "The number of cache directives emitted by the strategy "
+                "does not fulfill the goal! Total percent to be "
+                "cached: %f, expected %f" % (total_percent_cached,
+                                             strat.percentage_to_cache)))
+        else:
+            self.assertTrue(cache_directive_count == 0, (
+                "Since there are no available nodes to cache, the number "
+                "of cache directives should be zero, but got %d" % (
+                    cache_directive_count)))
 
     def test_node_ejection_behavior(self):
         """Perform the ejection test for all test environments."""
@@ -166,8 +189,8 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         """Make sure valid percentages are valid, and invalid percentages
         raise exceptions.
         """
-        valid_percentages = [0, 1, 2.5, 5.011, 10, 15, 99.99, 100]
-        invalid_percentages = [-1, -5, -0.1, 101, 100.001]
+        valid_percentages = [0, 0.01, 0.025, 0.05011, 0.1, 0.15, 0.9999, 1]
+        invalid_percentages = [-1, -5, -0.1, 1.001, 1.00001]
         for percentage in valid_percentages:
             try:
                 sps.SimpleProportionalStrategy(percentage)
