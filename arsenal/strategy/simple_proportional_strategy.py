@@ -15,6 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from __future__ import division
 import math
 import random
 
@@ -51,8 +52,16 @@ def build_attribute_dict(items, attr_name):
     return attr_dict
 
 
-def available_nodes(nodes):
+def nodes_available_for_caching(nodes):
     return filter(lambda node: node.can_cache(), nodes)
+
+
+def cached_nodes(nodes):
+    return filter(lambda node: not node.provisioned and node.cached, nodes)
+
+
+def unprovisioned_nodes(nodes):
+    return filter(lambda node: not node.provisioned, nodes)
 
 
 def segregate_nodes(nodes, flavors):
@@ -67,7 +76,7 @@ def segregate_nodes(nodes, flavors):
 
 
 def eject_nodes(nodes, image_uuids):
-    """For each flavor, check for cached nodes that have old or
+    """Check for cached nodes that have old or
     retired images. Eject them, and mark them as uncached internally.
     """
     ejections = []
@@ -82,9 +91,15 @@ def eject_nodes(nodes, image_uuids):
 
 
 def cache_nodes(nodes, num_nodes_needed, images):
-    nodes_available_for_caching = available_nodes(nodes)
-    print("num_nodes_needed: %d, nodes_available_for_caching: %d" % (
-          num_nodes_needed, len(nodes_available_for_caching)))
+    available_nodes = nodes_available_for_caching(nodes)
+
+    print("num_nodes_needed: %d, available_nodes: %d" % (
+          num_nodes_needed, len(available_nodes)))
+
+    if num_nodes_needed > len(available_nodes):
+        LOG.info(("SimpleProportionalStrategy: The number of nodes needed to "
+            "reach the proportional goal "))
+        num_nodes_needed = len(available_nodes)
 
     # If we're not meeting or exceeding
     # our proportion goal, schedule (node, image) pairs to cache
@@ -92,36 +107,40 @@ def cache_nodes(nodes, num_nodes_needed, images):
     # TODO(ClifHouck): This selection step can probably be
     # improved.
     nodes_to_cache = []
-    random.shuffle(nodes_available_for_caching)
+    random.shuffle(available_nodes)
     for n in range(0, num_nodes_needed):
-        node = nodes_available_for_caching.pop()
+        node = available_nodes.pop()
         image = random.choice(images)
         nodes_to_cache.append(sb.CacheNode(node.node_uuid, image.uuid))
     return nodes_to_cache
 
 
 def min_nodes_to_cache(nodes, percentage_to_cache):
-    num_nodes_cached = len(filter(lambda node: node.cached, nodes))
+    test_var = cached_nodes(nodes)
+    num_nodes_cached = len(cached_nodes(nodes))
     num_should_cache = how_many_nodes_should_cache(nodes, percentage_to_cache)
-    num_needed = num_should_cache - num_nodes_cached
-    return num_needed
+    print (("min_nodes_to_cache: goal = %f, available = %d, cached = %d, "
+        "should_cache = %d, unprovisioned = %d") % (percentage_to_cache, 
+            len(nodes_available_for_caching(nodes)), num_nodes_cached, 
+            num_should_cache, len(unprovisioned_nodes(nodes))))
+    return num_should_cache
 
 
 def how_many_nodes_should_cache(nodes, percentage_to_cache):
-    return int(math.ceil(
-        0.01 * percentage_to_cache * len(available_nodes(nodes))))
+    return int(math.ceil(percentage_to_cache * len(
+        unprovisioned_nodes(nodes)))) - len(cached_nodes(nodes))
 
 
 class InvalidPercentageError(exception.ArsenalException):
     msg_fmt = ("An invalid percentage was specified. Percentages should be "
-               "less than or equal to 100, and greater than or equal to 0. "
+               "less than or equal to 1, and greater than or equal to 0. "
                "Got '%(percentage)f'.")
 
 
 class SimpleProportionalStrategy(object):
-    def __init__(self, percentage_to_cache=25):
+    def __init__(self, percentage_to_cache=0.25):
         # Clamp the percentage to reasonable values.
-        if percentage_to_cache < 0 or percentage_to_cache > 100:
+        if percentage_to_cache < 0 or percentage_to_cache > 1:
             raise InvalidPercentageError(percentage=percentage_to_cache)
 
         self.percentage_to_cache = percentage_to_cache
@@ -159,7 +178,8 @@ class SimpleProportionalStrategy(object):
         todo = []
 
         # Eject nodes.
-        todo.extend(eject_nodes(self.current_nodes, self.current_images))
+        todo.extend(eject_nodes(self.current_nodes, 
+            map(lambda image: image.uuid, self.current_images)))
 
         # Once bad cached nodes have been ejected, determine the proportion
         # of truly 'good' cached nodes.
