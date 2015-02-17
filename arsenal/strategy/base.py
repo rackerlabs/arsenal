@@ -41,10 +41,11 @@ class NodeInput(StrategyInput):
         return (not self.provisioned) and (not self.cached)
 
     def __str__(self):
-        return "[NodeInput]: %s, %s, %s, %s" % (self.node_uuid, 
-                "Provisioned" if self.provisioned else "Unprovisioned",
-                "Cached" if self.cached else "Not cached",
-                self.cached_image_uuid)
+        return "[NodeInput]: %s, %s, %s, %s" % (
+            self.node_uuid,
+            "Provisioned" if self.provisioned else "Unprovisioned",
+            "Cached" if self.cached else "Not cached",
+            self.cached_image_uuid)
 
 
 class FlavorInput(StrategyInput):
@@ -65,6 +66,7 @@ class ImageInput(StrategyInput):
 
     def __str__(self):
         return "[ImageInput]: %s, %s" % (self.name, self.uuid)
+
 
 class StrategyAction(object):
     """Base class for actions a CachingStratgy object may take."""

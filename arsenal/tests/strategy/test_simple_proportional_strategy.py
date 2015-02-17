@@ -78,7 +78,7 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         images_with_invalid.extend(TEST_IMAGES)
         images_with_invalid.append(INVALID_IMAGE)
         for n_count in node_counts:
-            print "Building random nodes for random-nodes(%d)" % n_count
+            print("Building random nodes for random-nodes(%d)" % n_count)
             environment = {'nodes': []}
             for n in range(n_count):
                 flavor_pick = random.choice(flavor_prefixes)
@@ -122,22 +122,25 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
             for directive in directives:
                 print(str(directive))
             for flavor in env['flavors']:
-                self._test_proportion_goal_versus_flavor(strategy, directives,
-                        env['nodes'], flavor)
+                self._test_proportion_goal_versus_flavor(
+                    strategy, directives, env['nodes'], flavor)
 
-    def _test_proportion_goal_versus_flavor(self, strat, directives, nodes, 
-            flavor):
+    def _test_proportion_goal_versus_flavor(self, strat, directives, nodes,
+                                            flavor):
         print("Testing flavor %s." % flavor.name)
         flavor_nodes = filter(lambda node: flavor.is_flavor_node(node), nodes)
         unprovisioned_node_count = len(sps.unprovisioned_nodes(flavor_nodes))
         available_node_count = len(sps.nodes_available_for_caching(
             flavor_nodes))
         cached_node_count = len(filter(lambda node: node.cached, flavor_nodes))
-        cache_directive_count = len(filter(
-            lambda directive: (isinstance(directive, sb.CacheNode) and 
-                flavor.is_flavor_node(
-                    sb.NodeInput(directive.node_uuid))), directives))
-        self.assertTrue(cache_directive_count <= available_node_count,
+        cache_directive_count = len(
+            filter(
+                lambda directive: (
+                    isinstance(directive, sb.CacheNode) and
+                    flavor.is_flavor_node(sb.NodeInput(directive.node_uuid))),
+                directives))
+        self.assertTrue(
+            cache_directive_count <= available_node_count,
             ("There shouldn't be more cache directives than "
              "there are nodes available to cache."))
 

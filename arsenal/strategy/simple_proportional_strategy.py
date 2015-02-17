@@ -92,15 +92,6 @@ def eject_nodes(nodes, image_uuids):
 
 def cache_nodes(nodes, num_nodes_needed, images):
     available_nodes = nodes_available_for_caching(nodes)
-
-    print("num_nodes_needed: %d, available_nodes: %d" % (
-          num_nodes_needed, len(available_nodes)))
-
-    if num_nodes_needed > len(available_nodes):
-        LOG.info(("SimpleProportionalStrategy: The number of nodes needed to "
-            "reach the proportional goal "))
-        num_nodes_needed = len(available_nodes)
-
     # If we're not meeting or exceeding
     # our proportion goal, schedule (node, image) pairs to cache
     # randomly until we would meet our proportion goal.
@@ -113,17 +104,6 @@ def cache_nodes(nodes, num_nodes_needed, images):
         image = random.choice(images)
         nodes_to_cache.append(sb.CacheNode(node.node_uuid, image.uuid))
     return nodes_to_cache
-
-
-def min_nodes_to_cache(nodes, percentage_to_cache):
-    test_var = cached_nodes(nodes)
-    num_nodes_cached = len(cached_nodes(nodes))
-    num_should_cache = how_many_nodes_should_cache(nodes, percentage_to_cache)
-    print (("min_nodes_to_cache: goal = %f, available = %d, cached = %d, "
-        "should_cache = %d, unprovisioned = %d") % (percentage_to_cache, 
-            len(nodes_available_for_caching(nodes)), num_nodes_cached, 
-            num_should_cache, len(unprovisioned_nodes(nodes))))
-    return num_should_cache
 
 
 def how_many_nodes_should_cache(nodes, percentage_to_cache):
@@ -178,8 +158,10 @@ class SimpleProportionalStrategy(object):
         todo = []
 
         # Eject nodes.
-        todo.extend(eject_nodes(self.current_nodes, 
-            map(lambda image: image.uuid, self.current_images)))
+        todo.extend(
+            eject_nodes(
+                self.current_nodes,
+                map(lambda image: image.uuid, self.current_images)))
 
         # Once bad cached nodes have been ejected, determine the proportion
         # of truly 'good' cached nodes.
@@ -188,8 +170,8 @@ class SimpleProportionalStrategy(object):
         for flavor_name, flavor_nodes in nodes_by_flavor.iteritems():
             print("SimpleProportionalStrategy.directives [%s,%d] " % (
                 flavor_name, len(flavor_nodes)))
-            num_nodes_needed = min_nodes_to_cache(flavor_nodes,
-                                                  self.percentage_to_cache)
+            num_nodes_needed = how_many_nodes_should_cache(
+                flavor_nodes, self.percentage_to_cache)
             nodes_to_cache = cache_nodes(flavor_nodes, num_nodes_needed,
                                          self.current_images)
             todo.extend(nodes_to_cache)
