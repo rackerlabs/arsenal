@@ -27,7 +27,8 @@ class StrategyInput(object):
 
 
 class NodeInput(StrategyInput):
-    def __init__(self, node_uuid, is_provisioned, is_cached, image_uuid):
+    def __init__(self, node_uuid, is_provisioned=False, is_cached=False,
+                 image_uuid=''):
         super(NodeInput, self).__init__()
         self.node_uuid = node_uuid
         self.provisioned = is_provisioned
@@ -37,7 +38,13 @@ class NodeInput(StrategyInput):
     def can_cache(self):
         # If the node is not provisioned and not already caching an image,
         # then it is available for caching.
-        return not self.provisioned and not self.cached
+        return (not self.provisioned) and (not self.cached)
+
+    def __str__(self):
+        return "[NodeInput]: %s, %s, %s, %s" % (self.node_uuid, 
+                "Provisioned" if self.provisioned else "Unprovisioned",
+                "Cached" if self.cached else "Not cached",
+                self.cached_image_uuid)
 
 
 class FlavorInput(StrategyInput):
@@ -46,6 +53,9 @@ class FlavorInput(StrategyInput):
         self.name = name
         self.is_flavor_node = identity_func
 
+    def __str__(self):
+        return "[FlavorInput]: %s" % (self.name)
+
 
 class ImageInput(StrategyInput):
     def __init__(self, name, uuid):
@@ -53,11 +63,15 @@ class ImageInput(StrategyInput):
         self.name = name
         self.uuid = uuid
 
+    def __str__(self):
+        return "[ImageInput]: %s, %s" % (self.name, self.uuid)
 
 class StrategyAction(object):
     """Base class for actions a CachingStratgy object may take."""
     def __init__(self, format_string="{0}", format_attrs=['name']):
         self.name = self.__class__.__name__
+        self.format_string = format_string
+        self.format_attrs = format_attrs
 
     def __str__(self):
         format_list = []
@@ -73,7 +87,7 @@ class CacheNode(StrategyAction):
 
     def __init__(self, node_uuid, image_uuid):
         super(CacheNode, self).__init__(
-            format_string="{0}: Cache image '{1}' on node '{0}'.",
+            format_string="{0}: Cache image '{1}' on node '{2}'.",
             format_attrs=['name', 'image_uuid', 'node_uuid'])
         self.node_uuid = node_uuid
         self.image_uuid = image_uuid
