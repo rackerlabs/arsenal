@@ -15,7 +15,7 @@
 
 import mock
 from novaclient import exceptions as nova_exception
-from novaclient.v3 import client as nova_client
+from novaclient.v1_1 import client as nova_client
 from oslo.config import cfg
 
 from arsenal.common import exception
@@ -35,7 +35,7 @@ class FakeClient(object):
     flavor = FakeFlavorClient()
 
 
-FAKE_CLIENT = FakeClient
+FAKE_CLIENT = FakeClient()
 
 
 def get_new_fake_client(*args, **kwargs):
@@ -70,30 +70,31 @@ class NovaClientWrapperTestCase(test_base.TestCase):
             'test', associated=True)
 
     @mock.patch.object(nova_client, 'Client')
-    def test__get_client_no_auth_token(self, mock_ir_cli):
+    def test__get_client_no_auth_token(self, mock_nova_cli):
         self.flags(admin_auth_token=None, group='nova')
         novaclient = client_wrapper.NovaClientWrapper()
         # dummy call to have _get_client() called
         novaclient.call("flavor.list")
         expected = {'username': CONF.nova.admin_username,
-                    'password': CONF.nova.admin_password,
+                    'api_key': CONF.nova.admin_password,
                     'auth_url': CONF.nova.admin_url,
-                    'tenant_name': CONF.nova.admin_tenant_name,
-                    'service_type': 'compute',
-                    'endpoint_type': 'public'}
-        mock_ir_cli.assert_called_once_with(CONF.nova.api_version,
-                                            **expected)
+                    'project_id': CONF.nova.admin_tenant_name,
+                    'insecure': True,
+                    'service_name': CONF.nova.service_name,
+                    'region_name': CONF.nova.region_name,
+                    'auth_system': CONF.nova.auth_system,
+                    'auth_plugin': None}
+        mock_nova_cli.assert_called_once_with(**expected)
 
     @mock.patch.object(nova_client, 'Client')
-    def test__get_client_with_auth_token(self, mock_ir_cli):
+    def test__get_client_with_auth_token(self, mock_nova_cli):
         self.flags(admin_auth_token='fake-token', group='nova')
         novaclient = client_wrapper.NovaClientWrapper()
         # dummy call to have _get_client() called
         novaclient.call("flavor.list")
         expected = {'auth_token': 'fake-token',
-                    'auth_url': CONF.nova.api_endpoint}
-        mock_ir_cli.assert_called_once_with(CONF.nova.api_version,
-                                            **expected)
+                    'auth_url': CONF.nova.admin_url}
+        mock_nova_cli.assert_called_once_with(**expected)
 
     @mock.patch.object(client_wrapper.NovaClientWrapper, '_multi_getattr')
     @mock.patch.object(client_wrapper.NovaClientWrapper, '_get_client')

@@ -16,10 +16,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import importlib
 import time
 
 from novaclient import exceptions as nova_exc
-from novaclient.v3 import client
+from novaclient.v1_1 import client
 from oslo.config import cfg
 
 from arsenal.common import exception
@@ -31,11 +32,6 @@ LOG = logging.getLogger(__name__)
 
 
 opts = [
-    cfg.IntOpt('api_version',
-               default=3,
-               help='Version of Nova API service endpoint.'),
-    cfg.StrOpt('api_endpoint',
-               help='URL for Nova API endpoint.'),
     cfg.StrOpt('admin_username',
                help='Nova keystone admin name'),
     cfg.StrOpt('admin_password',
@@ -57,7 +53,19 @@ opts = [
                default=2,
                help='How often to retry in seconds when a request '
                     'does conflict'),
-    ]
+    cfg.StrOpt('region_name',
+               help='Nova region name.'),
+    cfg.StrOpt('service_name',
+               help='Nova service name.'),
+    cfg.StrOpt('auth_system',
+               default='keystone',
+               help='Nova auth_system argument.'),
+    cfg.StrOpt('auth_plugin',
+               help='The authorization plugin to load for nova.'),
+    cfg.StrOpt('auth_plugin_obj',
+               help='The authorization plugin to load for nova.'),
+
+]
 
 nova_group = cfg.OptGroup(name='nova',
                           title='Nova Options')
@@ -85,19 +93,28 @@ class NovaClientWrapper(object):
             return self._cached_client
 
         auth_token = CONF.nova.admin_auth_token
+        auth_plugin = None
+        if CONF.nova.auth_plugin is not None:
+            auth_plugin_module = importlib.import_module(CONF.nova.auth_plugin)
+            auth_plugin = getattr(auth_plugin_module,
+                                  CONF.nova.auth_plugin_obj)()
+
         if auth_token is None:
             kwargs = {'username': CONF.nova.admin_username,
-                      'password': CONF.nova.admin_password,
+                      'api_key': CONF.nova.admin_password,
                       'auth_url': CONF.nova.admin_url,
-                      'tenant_name': CONF.nova.admin_tenant_name,
-                      'service_type': 'compute',
-                      'endpoint_type': 'public'}
+                      'project_id': CONF.nova.admin_tenant_name,
+                      'insecure': True,
+                      'service_name': CONF.nova.service_name,
+                      'region_name': CONF.nova.region_name,
+                      'auth_system': CONF.nova.auth_system,
+                      'auth_plugin': auth_plugin}
         else:
             kwargs = {'auth_token': auth_token,
                       'auth_url': CONF.nova.admin_url}
 
         try:
-            cli = client.Client(CONF.nova.api_version, **kwargs)
+            cli = client.Client(**kwargs)
             # Cache the client so we don't have to reconstruct and
             # reauthenticate it every time we need it.
             self._cached_client = cli
@@ -147,7 +164,8 @@ class NovaClientWrapper(object):
                 self._invalidate_cached_client()
                 LOG.debug("The Nova client became unauthorized. "
                           "Will attempt to reauthorize and try again.")
-            except retry_excs:
+            except retry_excs as e:
+                LOG.debug("Got a retry-able exception." + str(e))
                 pass
 
             # We want to perform this logic for all exception cases listed
