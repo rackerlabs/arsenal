@@ -17,8 +17,10 @@
 
 from oslo.config import cfg
 
+from arsenal.director import scout
 from arsenal.openstack.common import log
 from arsenal.openstack.common import periodic_task
+from arsenal.strategy import base as sb
 
 LOG = log.getLogger(__name__)
 
@@ -30,13 +32,32 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
 
     def __init__(self):
         super(DirectorScheduler, self).__init__()
+        self.node_data = []
+        self.image_data = []
+        self.flavor_data = []
+        self.strat = sb.get_configured_strategy()
+        self.scout = scout.Scout()
 
     def periodic_tasks(self, context, raise_on_error=False):
         return self.run_periodic_tasks(context, raise_on_error)
 
     @periodic_task.periodic_task
-    def _poll_for_unprovisioned_ironic_nodes(self, context):
-        LOG.info("DirectorScheduler._poll_for_unprovisioned_ironic_nodes: "
-                 "Beginning poll...")
-        LOG.info("DirectorScheduler._poll_for_unprovisioned_ironic_nodes: "
-                 "Finished!")
+    def update_strategy(self, context):
+        self.strat.update_current_state(self.node_data, self.image_data,
+                                        self.flavor_data)
+
+    @periodic_task.periodic_task
+    def get_directives(self, context):
+        self.directives = self.strat.directives()
+
+    @periodic_task.periodic_task
+    def poll_for_node_data(self, context):
+        self.node_data = self.scout.retrieve_node_data()
+
+    @periodic_task.periodic_task
+    def poll_for_flavor_data(self, context):
+        self.node_data = self.scout.retrieve_flavor_data()
+
+    @periodic_task.periodic_task
+    def poll_for_image_data(self, context):
+        self.node_data = self.scout.retrieve_image_data()
