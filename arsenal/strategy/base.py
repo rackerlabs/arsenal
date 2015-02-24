@@ -16,8 +16,69 @@
 #    under the License.
 
 import abc
+import importlib
 
+from oslo.config import cfg
 import six
+
+from arsenal.common import exception
+
+
+opts = [
+    cfg.StrOpt('module',
+               default='arsenal.strategy.simple_proportional_strategy',
+               help='The strategy module to load.'),
+    cfg.StrOpt('strategy_class',
+               default='SimpleProportionalStrategy',
+               help='The strategy class to instantiate and use to direct '
+                    'Arsenal\'s caching operations.')
+]
+
+strategy_group = cfg.OptGroup(name='strategy',
+                              title='Strategy Options')
+
+CONF = cfg.CONF
+CONF.register_group(strategy_group)
+CONF.register_opts(opts, strategy_group)
+
+
+class ImportStrategyModuleException(exception.ArsenalException):
+    msg_fmt = "Couldn't import strategy module '%(module_name)s'"
+
+
+class CreateStrategyObjectException(exception.ArsenalException):
+    msg_fmt = "Couldn't create the specified strategy object'%(class_name)s'"
+
+
+def get_configured_strategy():
+    """Get the configured strategy object. Loads the strategy module and
+    instantiates the configured class if it hasn't been done already.
+
+    Raises ImportStrategyModuleException if the configured strategy module
+    fails to import. Raises CreateStrategyObjectException if the configured
+    class fails to insantiate.
+    """
+    if get_configured_strategy.strat_module is None:
+        try:
+            get_configured_strategy.strat_module = (
+                importlib.import_module(CONF.strategy.module,
+                                        package='arsenal.strategy'))
+        except ImportError:
+            raise ImportStrategyModuleException(
+                module_name=CONF.strategy.module)
+
+    if get_configured_strategy.strat_obj is None:
+        try:
+            configured_class = getattr(get_configured_strategy.strat_module,
+                                       CONF.strategy.strategy_class)
+            get_configured_strategy.strat_obj = configured_class()
+        except AttributeError:
+            raise CreateStrategyObjectException(
+                class_name=CONF.strategy.strategy_class)
+
+    return get_configured_strategy.strat_obj
+get_configured_strategy.strat_module = None
+get_configured_strategy.strat_obj = None
 
 
 class StrategyInput(object):
