@@ -17,13 +17,13 @@
 #    under the License.
 
 import importlib
-import time
 
 from novaclient import exceptions as nova_exc
-from novaclient.v1_1 import client
+from novaclient.v2 import client
 from oslo.config import cfg
 
 from arsenal.common import exception
+from arsenal.external import client_wrapper
 # from arsenal.i18n import _
 from arsenal.openstack.common import log as logging
 
@@ -74,109 +74,67 @@ CONF = cfg.CONF
 CONF.register_group(nova_group)
 CONF.register_opts(opts, nova_group)
 
+first_not_none = client_wrapper.first_not_none
 
-class NovaClientWrapper(object):
+
+class NovaClientWrapper(client_wrapper.OpenstackClientWrapper):
     """Nova client wrapper class that encapsulates retry logic."""
 
     def __init__(self):
         """Initialise the NovaClientWrapper for use."""
-        self._cached_client = None
+        super(NovaClientWrapper, self).__init__(
+            retry_exceptions=(nova_exc.ConnectionRefused,
+                              nova_exc.Conflict),
+            auth_exceptions=(nova_exc.Unauthorized),
+            name="Nova")
 
-    def _invalidate_cached_client(self):
-        """Tell the wrapper to invalidate the cached nova-client."""
-        self._cached_client = None
-
-    def _get_client(self):
-        # If we've already constructed a valid, authed client, just return
-        # that.
-        if self._cached_client is not None:
-            return self._cached_client
-
-        auth_token = CONF.nova.admin_auth_token
+    def _get_new_client(self):
+        auth_token = first_not_none([CONF.nova.admin_auth_token,
+                                     CONF.client_wrapper.os_auth_token])
         auth_plugin = None
         if CONF.nova.auth_plugin is not None:
             auth_plugin_module = importlib.import_module(CONF.nova.auth_plugin)
             auth_plugin = getattr(auth_plugin_module,
                                   CONF.nova.auth_plugin_obj)()
 
+        # Instead of just using client_wrapper configuration options,
+        # provide them as a fallback if nova configuration options are not
+        # defined.
         if auth_token is None:
-            kwargs = {'username': CONF.nova.admin_username,
-                      'api_key': CONF.nova.admin_password,
-                      'auth_url': CONF.nova.admin_url,
-                      'project_id': CONF.nova.admin_tenant_name,
+            kwargs = {'username':
+                      first_not_none([CONF.nova.admin_username,
+                                      CONF.client_wrapper.os_username]),
+                      'api_key':
+                      first_not_none([CONF.nova.admin_password,
+                                      CONF.client_wrapper.os_password]),
+                      'auth_url':
+                      first_not_none([CONF.nova.admin_url,
+                                      CONF.client_wrapper.os_api_url]),
+                      'project_id':
+                      first_not_none([CONF.nova.admin_tenant_name,
+                                      CONF.client_wrapper.os_tenant_name]),
                       'insecure': True,
-                      'service_name': CONF.nova.service_name,
-                      'region_name': CONF.nova.region_name,
-                      'auth_system': CONF.nova.auth_system,
+                      'service_name':
+                      first_not_none([CONF.nova.service_name,
+                                      CONF.client_wrapper.service_name]),
+                      'region_name':
+                      first_not_none([CONF.nova.region_name,
+                                      CONF.client_wrapper.region_name]),
+                      'auth_system':
+                      first_not_none([CONF.nova.auth_system,
+                                      CONF.client_wrapper.auth_system]),
                       'auth_plugin': auth_plugin}
         else:
             kwargs = {'auth_token': auth_token,
-                      'auth_url': CONF.nova.admin_url}
+                      'auth_url':
+                      first_not_none([CONF.nova.admin_url,
+                                     CONF.client_wrapper.os_api_url])}
 
         try:
             cli = client.Client(**kwargs)
-            # Cache the client so we don't have to reconstruct and
-            # reauthenticate it every time we need it.
-            self._cached_client = cli
-
         except nova_exc.Unauthorized:
             msg = "Unable to authenticate Nova client."
             LOG.error(msg)
             raise exception.ArsenalException(msg)
 
         return cli
-
-    def _multi_getattr(self, obj, attr):
-        """Support nested attribute path for getattr().
-
-        :param obj: Root object.
-        :param attr: Path of final attribute to get. E.g., "a.b.c.d"
-
-        :returns: The value of the final named attribute.
-        :raises: AttributeError will be raised if the path is invalid.
-        """
-        for attribute in attr.split("."):
-            obj = getattr(obj, attribute)
-        return obj
-
-    def call(self, method, *args, **kwargs):
-        """Call an Nova client method and retry on errors.
-
-        :param method: Name of the client method to call as a string.
-        :param args: Client method arguments.
-        :param kwargs: Client method keyword arguments.
-
-        :raises: ArsenalException if all retries failed.
-        """
-        retry_excs = (nova_exc.ConnectionRefused,
-                      nova_exc.Conflict)
-        num_attempts = CONF.nova.api_max_retries
-
-        for attempt in range(1, num_attempts + 1):
-            client = self._get_client()
-
-            try:
-                return self._multi_getattr(client, method)(*args, **kwargs)
-            except nova_exc.Unauthorized:
-                # In this case, the authorization token of the cached
-                # nova-client probably expired. So invalidate the cached
-                # client and the next try will start with a fresh one.
-                self._invalidate_cached_client()
-                LOG.debug("The Nova client became unauthorized. "
-                          "Will attempt to reauthorize and try again.")
-            except retry_excs as e:
-                LOG.debug("Got a retry-able exception." + str(e))
-                pass
-
-            # We want to perform this logic for all exception cases listed
-            # above.
-            msg = ("Error contacting Nova server for "
-                   "'%(method)s'. Attempt %(attempt)d of %(total)d" %
-                   {'method': method,
-                    'attempt': attempt,
-                    'total': num_attempts})
-            if attempt == num_attempts:
-                LOG.error(msg)
-                raise exception.ArsenalException(msg)
-            LOG.warning(msg)
-            time.sleep(CONF.nova.api_retry_interval)
