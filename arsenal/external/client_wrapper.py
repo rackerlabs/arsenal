@@ -40,6 +40,8 @@ opts = [
                help='Keystone public API endpoint.'),
     cfg.StrOpt('os_tenant_name',
                help='Openstack keystone tenant name.'),
+    cfg.StrOpt('os_tenant_id',
+               help='Openstack keystone tenant ID.'),
     cfg.IntOpt('call_max_retries',
                default=60,
                help='How many times to retry a call when the call fails in '
