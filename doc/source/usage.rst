@@ -2,6 +2,6 @@
 Usage
 ========
 
-To use onmetal-image-scheduler in a project::
+To use arsenal in a project::
 
     import arsenal

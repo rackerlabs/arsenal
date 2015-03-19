@@ -37,8 +37,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'onmetal-image-scheduler'
-copyright = u'2013, OpenStack Foundation'
+project = u'arsenal'
+copyright = u'2015, Rackspace'
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 add_function_parentheses = True
@@ -68,7 +68,7 @@ latex_documents = [
     ('index',
      '%s.tex' % project,
      u'%s Documentation' % project,
-     u'OpenStack Foundation', 'manual'),
+     u'Rackspace', 'manual'),
 ]
 
 # Example configuration for intersphinx: refer to the Python standard library.
