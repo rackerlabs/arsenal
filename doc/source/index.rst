@@ -1,9 +1,9 @@
-.. onmetal-image-scheduler documentation master file, created by
+.. arsenal documentation master file, created by
    sphinx-quickstart on Tue Jul  9 22:26:36 2013.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to onmetal-image-scheduler's documentation!
+Welcome to arsenal's documentation!
 ========================================================
 
 Contents:
