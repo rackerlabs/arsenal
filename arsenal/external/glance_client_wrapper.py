@@ -18,6 +18,7 @@
 import glanceclient
 from glanceclient.v2 import client
 from oslo.config import cfg
+import pyrax
 
 from arsenal.common import exception
 from arsenal.external import client_wrapper
@@ -28,18 +29,18 @@ LOG = logging.getLogger(__name__)
 
 opts = [
     cfg.IntOpt('api_version',
-               default=1,
+               default=2,
                help='Version of Glance API service endpoint.'),
     cfg.StrOpt('api_endpoint',
                help='URL for Glance API endpoint.'),
+    cfg.StrOpt('auth_endpoint',
+               help='URL for Auth endpoint.'),
     cfg.StrOpt('admin_username',
                help='Glance keystone admin name'),
     cfg.StrOpt('admin_password',
                help='Glance keystone admin password.'),
     cfg.StrOpt('admin_auth_token',
                help='Glance keystone auth token.'),
-    cfg.StrOpt('admin_url',
-               help='Keystone public API endpoint.'),
     cfg.StrOpt('client_log_level',
                help='Log level override for glanceclient. Set this in '
                     'order to override the global "default_log_levels", '
@@ -48,13 +49,6 @@ opts = [
                help='Glance keystone tenant name.'),
     cfg.StrOpt('admin_tenant_id',
                help='Glance keystone tenant id.'),
-    cfg.IntOpt('api_max_retries',
-               default=60,
-               help='How many retries when a request does conflict.'),
-    cfg.IntOpt('api_retry_interval',
-               default=2,
-               help='How often to retry in seconds when a request '
-                    'does conflict'),
     cfg.StrOpt('region_name',
                help='Glance region name.'),
 ]
@@ -82,6 +76,11 @@ class GlanceClientWrapper(client_wrapper.OpenstackClientWrapper):
     def _get_new_client(self):
         auth_token = first_not_none([CONF.glance.admin_auth_token,
                                      CONF.client_wrapper.os_auth_token])
+        endpoint = first_not_none([CONF.glance.api_endpoint,
+                                   CONF.client_wrapper.os_api_url])
+        if endpoint is None:
+            raise exception.ArsenalException(
+                "There was no endpoint specified for the glance client!")
 
         if auth_token is None:
             kwargs = {'username':
@@ -91,7 +90,7 @@ class GlanceClientWrapper(client_wrapper.OpenstackClientWrapper):
                       first_not_none([CONF.glance.admin_password,
                                       CONF.client_wrapper.os_password]),
                       'auth_url':
-                      first_not_none([CONF.glance.admin_url,
+                      first_not_none([CONF.glance.auth_endpoint,
                                       CONF.client_wrapper.os_api_url]),
                       'tenant_name':
                       first_not_none([CONF.glance.admin_tenant_name,
@@ -103,15 +102,19 @@ class GlanceClientWrapper(client_wrapper.OpenstackClientWrapper):
                       first_not_none([CONF.glance.region_name,
                                       CONF.client_wrapper.region_name]),
                       }
+            # TODO(ClifHouck): Do something better here. Added
+            # this after I discovered glanceclient does not try to
+            # authenticate against keystone, despite its docs stating
+            # otherwise.
+            pyrax.set_credentials(kwargs.get('username'),
+                                  kwargs.get('password'))
+            auth_token = pyrax.identity.auth_token
+            kwargs = {'token': auth_token}
         else:
-            kwargs = {'auth_token': auth_token,
-                      'auth_url':
-                      first_not_none([CONF.glance.admin_url,
-                                      CONF.client_wrapper.os_api_url]),
-                      }
+            kwargs = {'token': auth_token}
 
         try:
-            cli = client.Client(**kwargs)
+            cli = client.Client(endpoint, **kwargs)
 
         except glanceclient.exc.Unauthorized:
             msg = "Unable to authenticate Glance client."

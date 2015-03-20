@@ -69,9 +69,16 @@ def segregate_nodes(nodes, flavors):
     nodes_by_flavor = {}
     for flavor in flavors:
         nodes_by_flavor[flavor.name] = []
-        for node in nodes:
-            if flavor.is_flavor_node(node):
-                nodes_by_flavor[flavor.name].append(node)
+
+    flavor_names = build_attribute_set(flavors, 'name')
+
+    for node in nodes:
+        if node.flavor not in flavor_names:
+            LOG.error("Node '%(node)s'with unrecognized flavor '%(flavor)s "
+                      "detected. ", {'node': node.uuid, 'flavor': node.flavor})
+            next
+        nodes_by_flavor[node.flavor].append(node)
+
     return nodes_by_flavor
 
 
@@ -102,7 +109,9 @@ def cache_nodes(nodes, num_nodes_needed, images):
     for n in range(0, num_nodes_needed):
         node = available_nodes.pop()
         image = random.choice(images)
-        nodes_to_cache.append(sb.CacheNode(node.node_uuid, image.uuid))
+        nodes_to_cache.append(sb.CacheNode(node.node_uuid,
+                                           image.uuid,
+                                           image.checksum))
     return nodes_to_cache
 
 

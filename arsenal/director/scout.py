@@ -15,71 +15,45 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import arsenal.external.ironic_client_wrapper as icw
-import arsenal.external.nova_client_wrapper as ncw
-from arsenal.strategy import base as sb
+import abc
+
+import six
 
 
-def is_node_provisioned(ironic_node):
-    # FIXME(ClifHouck): This probably needs revising.
-    # The node is considered provisioned if the state is not null,
-    # and either has an instance UUID or is in maintenance mode.
-    return (ironic_node.provision_state is not None and
-            (getattr(ironic_node, 'instance_uuid', None) is not None or
-             not ironic_node.maintenance))
-
-
-def is_node_cached(ironic_node):
-    # TODO(ClifHouck)
-    return False
-
-
-def get_node_cached_image_uuid(ironic_node):
-    # TODO(ClifHouck)
-    return ''
-
-
-def convert_node(ironic_node):
-    return sb.NodeInput(ironic_node.uuid,
-                        is_node_provisioned(ironic_node),
-                        is_node_cached(ironic_node),
-                        get_node_cached_image_uuid(ironic_node))
-
-
-def convert_image(nova_image):
-    return sb.ImageInput(nova_image.name, nova_image.id)
-
-
-def convert_flavor(nova_flavor):
-    # TODO(ClifHouck): How do I get the identity function bound to this
-    # flavor?
-    return sb.FlavorInput(nova_flavor.name, None)
-
-
+@six.add_metaclass(abc.ABCMeta)
 class Scout(object):
     """Scouts data from various sources and massages into nice forms for use
     by Arsenal.
     """
-    def __init__(self):
-        self.ironic_client = icw.IronicClientWrapper()
-        self.nova_client = ncw.NovaClientWrapper()
 
+    @abc.abstractmethod
     def retrieve_node_data(self):
-        """Get information about nodes from Ironic to pass to an Arsenal
-        CachingStrategy object.
+        """Get information about nodes to pass to a CachingStrategy object.
+
+        :returns: A list of arsenal.strategy.base.NodeInput objects.
         """
-        # TODO(ClifHouck): Check for maximum node list limits?
-        node_list = self.ironic_client.call("node.list", limit=0)
+        pass
 
-        # Massage into input suitable for strategies.
-        return map(convert_node, node_list)
-
+    @abc.abstractmethod
     def retrieve_flavor_data(self):
-        # TODO(ClifHouck): Check for maximum flavor list limits?
-        flavor_list = self.nova_client.call("flavors.list")
-        return map(convert_flavor, flavor_list)
+        """Get information about flavors to pass to a CachingStrategy object.
 
+        :returns: A list of arsenal.strategy.base.FlavorInput objects.
+        """
+        pass
+
+    @abc.abstractmethod
     def retrieve_image_data(self):
-        # TODO(ClifHouck): Check for maximum image list limits?
-        image_list = self.nova_client.call("images.list")
-        return map(convert_image, image_list)
+        """Get information about images to pass to a CachingStrategy object.
+
+        :returns: A list of arsenal.strategy.base.ImageInput objects.
+        """
+        pass
+
+    @abc.abstractmethod
+    def issue_action(self, action):
+        """Issue a StrategyAction from arsenal.strategy.base.
+
+        :param action: A StrategyAction object.
+        """
+        pass

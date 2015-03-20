@@ -20,7 +20,6 @@ import logging
 from oslo.config import cfg
 
 from arsenal.common import config
-from arsenal.director import scheduler
 from arsenal.openstack.common import log
 from arsenal.openstack.common import service
 
@@ -30,6 +29,9 @@ LOG = log.getLogger(__name__)
 class ArsenalService(service.Service):
     def __init__(self):
         super(ArsenalService, self).__init__()
+        # Delaying import of the scheduler until after the configuration
+        # options are handled in prepare_service.
+        from arsenal.director import scheduler
         self.scheduler = scheduler.DirectorScheduler()
 
     def start(self):
@@ -46,5 +48,4 @@ class ArsenalService(service.Service):
 
 def prepare_service(argv=[]):
     config.parse_args(argv)
-    # TODO(ClifHouck): Setup defaults.
     log.setup('arsenal')

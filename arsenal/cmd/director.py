@@ -21,12 +21,8 @@ The Arsenal Image Caching Service
 
 import sys
 
-# from oslo.config import cfg
-
 from arsenal.common import service as arsenal_service
 from arsenal.openstack.common import service
-
-# CONF = cfg.CONF
 
 
 def main():

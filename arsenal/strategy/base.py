@@ -16,22 +16,17 @@
 #    under the License.
 
 import abc
-import importlib
 
 from oslo.config import cfg
 import six
 
-from arsenal.common import exception
-
+from arsenal.common import util
 
 opts = [
-    cfg.StrOpt('module',
-               default='arsenal.strategy.simple_proportional_strategy',
+    cfg.StrOpt('module_class',
+               default=('simple_proportional_strategy.'
+                        'SimpleProportionalStrategy'),
                help='The strategy module to load.'),
-    cfg.StrOpt('strategy_class',
-               default='SimpleProportionalStrategy',
-               help='The strategy class to instantiate and use to direct '
-                    'Arsenal\'s caching operations.')
 ]
 
 strategy_group = cfg.OptGroup(name='strategy',
@@ -42,43 +37,10 @@ CONF.register_group(strategy_group)
 CONF.register_opts(opts, strategy_group)
 
 
-class ImportStrategyModuleException(exception.ArsenalException):
-    msg_fmt = "Couldn't import strategy module '%(module_name)s'"
-
-
-class CreateStrategyObjectException(exception.ArsenalException):
-    msg_fmt = "Couldn't create the specified strategy object'%(class_name)s'"
-
-
 def get_configured_strategy():
-    """Get the configured strategy object. Loads the strategy module and
-    instantiates the configured class if it hasn't been done already.
-
-    Raises ImportStrategyModuleException if the configured strategy module
-    fails to import. Raises CreateStrategyObjectException if the configured
-    class fails to insantiate.
-    """
-    if get_configured_strategy.strat_module is None:
-        try:
-            get_configured_strategy.strat_module = (
-                importlib.import_module(CONF.strategy.module,
-                                        package='arsenal.strategy'))
-        except ImportError:
-            raise ImportStrategyModuleException(
-                module_name=CONF.strategy.module)
-
-    if get_configured_strategy.strat_obj is None:
-        try:
-            configured_class = getattr(get_configured_strategy.strat_module,
-                                       CONF.strategy.strategy_class)
-            get_configured_strategy.strat_obj = configured_class()
-        except AttributeError:
-            raise CreateStrategyObjectException(
-                class_name=CONF.strategy.strategy_class)
-
-    return get_configured_strategy.strat_obj
-get_configured_strategy.strat_module = None
-get_configured_strategy.strat_obj = None
+    loader = util.LoadClass(CONF.strategy.module_class,
+                            package_prefix='arsenal.strategy')
+    return loader.loaded_class()
 
 
 class StrategyInput(object):
@@ -88,10 +50,15 @@ class StrategyInput(object):
 
 
 class NodeInput(StrategyInput):
-    def __init__(self, node_uuid, is_provisioned=False, is_cached=False,
-                 image_uuid=''):
+    def __init__(self,
+                 node_uuid,
+                 flavor,
+                 is_provisioned=False,
+                 is_cached=False,
+                 image_uuid='', ):
         super(NodeInput, self).__init__()
         self.node_uuid = node_uuid
+        self.flavor = flavor
         self.provisioned = is_provisioned
         self.cached = is_cached
         self.cached_image_uuid = image_uuid
@@ -102,8 +69,9 @@ class NodeInput(StrategyInput):
         return (not self.provisioned) and (not self.cached)
 
     def __str__(self):
-        return "[NodeInput]: %s, %s, %s, %s" % (
+        return "[NodeInput]: %s, %s, %s, %s, %s" % (
             self.node_uuid,
+            self.flavor,
             "Provisioned" if self.provisioned else "Unprovisioned",
             "Cached" if self.cached else "Not cached",
             self.cached_image_uuid)
@@ -120,13 +88,16 @@ class FlavorInput(StrategyInput):
 
 
 class ImageInput(StrategyInput):
-    def __init__(self, name, uuid):
+    def __init__(self, name, uuid, checksum):
         super(ImageInput, self).__init__()
         self.name = name
         self.uuid = uuid
+        self.checksum = checksum
 
     def __str__(self):
-        return "[ImageInput]: %s, %s" % (self.name, self.uuid)
+        return "[ImageInput]: %s, %s, %s" % (self.name,
+                                             self.uuid,
+                                             self.checksum)
 
 
 class StrategyAction(object):
@@ -148,12 +119,13 @@ class CacheNode(StrategyAction):
     image on a specific node.
     """
 
-    def __init__(self, node_uuid, image_uuid):
+    def __init__(self, node_uuid, image_uuid, image_checksum):
         super(CacheNode, self).__init__(
             format_string="{0}: Cache image '{1}' on node '{2}'.",
             format_attrs=['name', 'image_uuid', 'node_uuid'])
         self.node_uuid = node_uuid
         self.image_uuid = image_uuid
+        self.image_checksum = image_checksum
 
 
 class EjectNode(StrategyAction):
@@ -180,7 +152,7 @@ class CachingStrategy(object):
 
     @abc.abstractmethod
     def directives(self):
-        """directives will return a list of simple actions Arsenal should take
+        """directives will return a list of StrategyActionsArsenal should take
         to fulfill this object's strategy, based on its view of the current
         system state.
         """
