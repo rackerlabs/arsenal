@@ -34,20 +34,20 @@ def name_starts_with(node, letter):
 
 
 TEST_FLAVORS = [
-    sb.FlavorInput("IO", lambda node: name_starts_with(node, 'i')),
-    sb.FlavorInput("Compute", lambda node: name_starts_with(node, 'c')),
-    sb.FlavorInput("Memory", lambda node: name_starts_with(node, 'm')),
+    sb.FlavorInput("IO", lambda node: name_starts_with(node, 'I')),
+    sb.FlavorInput("Compute", lambda node: name_starts_with(node, 'C')),
+    sb.FlavorInput("Memory", lambda node: name_starts_with(node, 'M')),
 ]
 
 TEST_IMAGES = [
-    sb.ImageInput("Ubuntu", "aaaa"),
-    sb.ImageInput("CentOS", "bbbb"),
-    sb.ImageInput("CoreOS", "cccc"),
-    sb.ImageInput("Redhat", "dddd"),
-    sb.ImageInput("Windows", "eeee")
+    sb.ImageInput("Ubuntu", "aaaa", "abcd"),
+    sb.ImageInput("CentOS", "bbbb", "efgh"),
+    sb.ImageInput("CoreOS", "cccc", "ijkl"),
+    sb.ImageInput("Redhat", "dddd", "mnop"),
+    sb.ImageInput("Windows", "eeee", "qrst")
 ]
 
-INVALID_IMAGE = sb.ImageInput("Windows95", "abcd")
+INVALID_IMAGE = sb.ImageInput("Windows95", "abcd", "uvwx")
 
 
 class TestSimpleProportionalStrategy(test_base.TestCase):
@@ -57,15 +57,15 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         # Setup a few simple cases, that are mostly defaults.
         self.environments = {
             'one_unprovisioned_node_environment': {
-                'nodes': [sb.NodeInput("caaa", False, False, None)],
+                'nodes': [sb.NodeInput("caaa", "Compute", False, False, None)],
             },
             'one_provisioned_node_environment': {
-                'nodes': [sb.NodeInput("caaa", True, False, None)],
+                'nodes': [sb.NodeInput("caaa", "Compute", True, False, None)],
             },
             'two_node_environment': {
                 'nodes': [
-                    sb.NodeInput("caaa", False, False, None),
-                    sb.NodeInput("cbbb", False, False, None),
+                    sb.NodeInput("caaa", "Compute", False, False, None),
+                    sb.NodeInput("cbbb", "Compute", False, False, None),
                 ],
             }
         }
@@ -73,7 +73,7 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         # Some programmatically constructed. With random provision and
         # cached states. Also, some nodes will have invalid images.
         node_counts = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]
-        flavor_prefixes = ['i', 'c', 'm']
+        flavors = ["IO", "Compute", "Memory"]
         images_with_invalid = []
         images_with_invalid.extend(TEST_IMAGES)
         images_with_invalid.append(INVALID_IMAGE)
@@ -81,7 +81,7 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
             print("Building random nodes for random-nodes(%d)" % n_count)
             environment = {'nodes': []}
             for n in range(n_count):
-                flavor_pick = random.choice(flavor_prefixes)
+                flavor_pick = random.choice(flavors)
                 image_pick_uuid = random.choice(images_with_invalid).uuid
                 provisioned_choice = random.choice([False, True])
 
@@ -90,7 +90,8 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
                     cache_choice = random.choice([False, True])
 
                 environment['nodes'].append(
-                    sb.NodeInput("%s-%d" % (flavor_pick, n),
+                    sb.NodeInput("%s-%d" % (flavor_pick[0], n),
+                                 flavor_pick,
                                  provisioned_choice,
                                  cache_choice,
                                  image_pick_uuid))
@@ -137,7 +138,8 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
             filter(
                 lambda directive: (
                     isinstance(directive, sb.CacheNode) and
-                    flavor.is_flavor_node(sb.NodeInput(directive.node_uuid))),
+                    flavor.is_flavor_node(sb.NodeInput(directive.node_uuid,
+                                                       '?'))),
                 directives))
         self.assertTrue(
             cache_directive_count <= available_node_count,
