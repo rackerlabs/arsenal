@@ -17,8 +17,8 @@
 
 import glanceclient
 from glanceclient.v2 import client
+from keystoneclient.v2_0 import client as keystone_client
 from oslo.config import cfg
-import pyrax
 
 from arsenal.common import exception
 from arsenal.external import client_wrapper
@@ -101,14 +101,15 @@ class GlanceClientWrapper(client_wrapper.OpenstackClientWrapper):
                       'region_name':
                       first_not_none([CONF.glance.region_name,
                                       CONF.client_wrapper.region_name]),
+                      'insecure': True
                       }
-            # TODO(ClifHouck): Do something better here. Added
-            # this after I discovered glanceclient does not try to
-            # authenticate against keystone, despite its docs stating
-            # otherwise.
-            pyrax.set_credentials(kwargs.get('username'),
-                                  kwargs.get('password'))
-            auth_token = pyrax.identity.auth_token
+
+            # NOTE(ClifHouck): Glanceclient doesn't currently actually try
+            # to auth, so get a token from keystone client instead.
+            ks_cli = keystone_client.Client(**kwargs)
+            auth_token_obj = (
+                ks_cli.get_raw_token_from_identity_service(**kwargs))
+            auth_token = auth_token_obj['token']['id']
             kwargs = {'token': auth_token}
         else:
             kwargs = {'token': auth_token}
