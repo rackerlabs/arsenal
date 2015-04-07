@@ -176,13 +176,13 @@ class OnMetalScout(scout.Scout):
 
         image_url = glance_image_data.get('file')
 
-        args = ({
+        args = {
             'image_info': {
                 'id': cache_node_action.image_uuid,
                 'urls': [CONF.glance.api_endpoint + image_url],
                 'checksum': cache_node_action.image_checksum
             }
-        })
+        }
 
         try:
             self.ironic_client.call('node.vendor_passthru',
