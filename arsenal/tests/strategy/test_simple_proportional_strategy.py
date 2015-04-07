@@ -23,10 +23,13 @@ behavior appears to be correct.
 from __future__ import division
 import random
 
+from oslo.config import cfg
 
 from arsenal.strategy import base as sb
 from arsenal.strategy import simple_proportional_strategy as sps
 from arsenal.tests import base as test_base
+
+CONF = cfg.CONF
 
 
 def name_starts_with(node, letter):
@@ -114,14 +117,18 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         """Test that strategy goals are always being met by directives output.
         Are we always caching at least enough to hit our proportion goal.
         """
-        strategy = sps.SimpleProportionalStrategy(test_percentage)
+        CONF.set_override('percentage_to_cache',
+                          test_percentage,
+                          group='simple_proportional_strategy')
+        strategy = sps.SimpleProportionalStrategy()
         for env_name, env in self.environments.iteritems():
             print("Testing %s environment." % env_name)
             strategy.update_current_state(**env)
             directives = strategy.directives()
             print("Directives:")
-            for directive in directives:
-                print(str(directive))
+            if directives:
+                for directive in directives:
+                    print(str(directive))
             for flavor in env['flavors']:
                 self._test_proportion_goal_versus_flavor(
                     strategy, directives, env['nodes'], flavor)
@@ -134,13 +141,16 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         available_node_count = len(sps.nodes_available_for_caching(
             flavor_nodes))
         cached_node_count = len(filter(lambda node: node.cached, flavor_nodes))
-        cache_directive_count = len(
-            filter(
-                lambda directive: (
-                    isinstance(directive, sb.CacheNode) and
-                    flavor.is_flavor_node(sb.NodeInput(directive.node_uuid,
-                                                       '?'))),
-                directives))
+        if directives:
+            cache_directive_count = len(
+                filter(
+                    lambda directive: (
+                        isinstance(directive, sb.CacheNode) and
+                        flavor.is_flavor_node(sb.NodeInput(directive.node_uuid,
+                                                           '?'))),
+                    directives))
+        else:
+            cache_directive_count = 0
         self.assertTrue(
             cache_directive_count <= available_node_count,
             ("There shouldn't be more cache directives than "
@@ -151,12 +161,16 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
             total_percent_cached = (
                 cache_directive_count + cached_node_count) / (
                 unprovisioned_node_count)
+            # This handles the fact that SimpleProportionalStrategy floors
+            # the number of nodes to cache, so we don't always cache a node
+            # if there's only a fractional node to cache.
+            total_percent_cached += (1 / unprovisioned_node_count)
             self.assertTrue((
                 total_percent_cached >= strat.percentage_to_cache), (
-                "The number of cache directives emitted by the strategy "
-                "does not fulfill the goal! Total percent to be "
-                "cached: %f, expected %f" % (total_percent_cached,
-                                             strat.percentage_to_cache)))
+                    "The number of cache directives emitted by the "
+                    "strategy does not fulfill the goal! Total percent to "
+                    "be cached: %f, expected %f" % (
+                        total_percent_cached, strat.percentage_to_cache)))
         else:
             self.assertTrue(cache_directive_count == 0, (
                 "Since there are no available nodes to cache, the number "
@@ -178,7 +192,7 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         directives = strategy.directives()
         ejection_directives = filter(
             lambda direct: isinstance(direct, sb.EjectNode),
-            directives)
+            directives or [sb.CacheNode('a', 'b', 'c')])
         ejected_node_uuids = sps.build_attribute_set(ejection_directives,
                                                      'node_uuid')
         for node in env['nodes']:
@@ -197,14 +211,19 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         valid_percentages = [0, 0.01, 0.025, 0.05011, 0.1, 0.15, 0.9999, 1]
         invalid_percentages = [-1, -5, -0.1, 1.001, 1.00001]
         for percentage in valid_percentages:
+            CONF.set_override('percentage_to_cache',
+                              percentage,
+                              group='simple_proportional_strategy')
             try:
-                sps.SimpleProportionalStrategy(percentage)
+                sps.SimpleProportionalStrategy()
             except sps.InvalidPercentageError:
                 self.assertTrue(False, (
                     "SimpleProportionalStrategy raised InvalidPercentageError "
                     "for %f inappropriately." % (percentage)))
 
         for percentage in invalid_percentages:
+            CONF.set_override('percentage_to_cache',
+                              percentage,
+                              group='simple_proportional_strategy')
             self.assertRaises(sps.InvalidPercentageError,
-                              sps.SimpleProportionalStrategy,
-                              percentage)
+                              sps.SimpleProportionalStrategy)

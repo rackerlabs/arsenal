@@ -131,10 +131,10 @@ class OpenstackClientWrapper(object):
             obj = getattr(obj, attribute)
         return obj
 
-    def call(self, method, *args, **kwargs):
+    def call(self, method_name, *args, **kwargs):
         """Call the specified client method and retry on errors.
 
-        :param method: Name of the client method to call as a string.
+        :param method_name: Name of the client method to call as a string.
         :param args: Client method arguments.
         :param kwargs: Client method keyword arguments.
 
@@ -149,7 +149,8 @@ class OpenstackClientWrapper(object):
             client = self._get_client()
 
             try:
-                return self._multi_getattr(client, method)(*args, **kwargs)
+                return self._multi_getattr(client, method_name)(*args,
+                                                                **kwargs)
             except auth_exceptions:
                 # In this case, the authorization token of the cached
                 # client probably expired. So invalidate the cached
@@ -167,7 +168,7 @@ class OpenstackClientWrapper(object):
             msg = ("Error contacting %(name)s server for "
                    "'%(method)s'. Attempt %(attempt)d of %(total)d" %
                    {'name': self.name,
-                    'method': method,
+                    'method': method_name,
                     'attempt': attempt,
                     'total': max_retries})
             if attempt == max_retries:

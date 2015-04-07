@@ -78,11 +78,6 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
 
     @periodic_task.periodic_task(run_immediately=True,
                                  spacing=CONF.director.poll_spacing)
-    def poll_for_node_data(self, context):
-        self.node_data = self.scout.retrieve_node_data()
-
-    @periodic_task.periodic_task(run_immediately=True,
-                                 spacing=CONF.director.poll_spacing)
     def poll_for_flavor_data(self, context):
         self.flavor_data = self.scout.retrieve_flavor_data()
 
@@ -93,6 +88,10 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
 
     @periodic_task.periodic_task(spacing=CONF.director.directive_spacing)
     def issue_directives(self, context):
+        # It's really important to have node state be as current as possible.
+        # So instead of polling for it, I'm leaving it tied to updating the
+        # state of the strategy.
+        self.node_data = self.scout.retrieve_node_data()
         self.strat.update_current_state(self.node_data, self.image_data,
                                         self.flavor_data)
         directives = self.strat.directives()

@@ -36,7 +36,7 @@ def is_node_provisioned(ironic_node):
 
 def is_node_cached(ironic_node):
     cache_status = ironic_node.driver_info.get('cache_status')
-    if cache_status is None:
+    if cache_status is None or cache_status == 'failed':
         return False
     else:
         return True
@@ -123,12 +123,12 @@ class OnMetalScout(scout.Scout):
         for flavor in unknown_flavors:
             KNOWN_FLAVORS[flavor.id] = lambda node: (
                 node.properties['memory_mb'] == flavor.ram)
-            LOG.warning("OnMetalScout detected an unknown flavor of id "
+            LOG.warning("Detected an unknown flavor of id "
                         "%(flavor_id)s. Adding to known flavor list, and "
                         "identifying by amount of memory reported, which is "
                         "%(memory)s",
                         {'flavor_id': flavor.id,
-                         'memory': flavor.memory_mb})
+                         'memory': flavor.ram})
         return map(convert_nova_flavor, flavor_list)
 
     def retrieve_image_data(self):
@@ -151,7 +151,7 @@ class OnMetalScout(scout.Scout):
         elif isinstance(action, sb.EjectNode):
             return self.issue_eject_node(action)
 
-        LOG.error("OnMetalScout.issue_action: action is not a known "
+        LOG.error("Action is not a known "
                   "StrategyAction type! This method needs to be updated "
                   "in order to handle this action. Doing nothing for now.")
 
@@ -163,11 +163,14 @@ class OnMetalScout(scout.Scout):
         return None
 
     def issue_cache_node(self, cache_node_action):
+        LOG.debug("Issuing cache node operation on node %(node)s with "
+                  "image %(image)s", {'node': cache_node_action.node_uuid,
+                                      'image': cache_node_action.image_uuid})
         glance_image_data = self._find_glance_image(cache_node_action)
 
         if glance_image_data is None:
-            LOG.error("OnMetalScout.issue_cache_node: Could not find glance "
-                      "data for the image '%(image_id)s ! Doing nothing.",
+            LOG.error("Could not find glance data for the image "
+                      "'%(image_id)s'! Doing nothing.",
                       {'image_id': cache_node_action.node_uuid})
             return
 
@@ -191,6 +194,8 @@ class OnMetalScout(scout.Scout):
             LOG.exception(e)
 
     def issue_eject_node(self, eject_node_action):
+        LOG.debug("Issuing eject node command on node '%(node)s'.",
+                  {'node': eject_node_action.node_uuid})
         try:
             self.ironic_client.call('node.set_provision_state',
                                     node_uuid=eject_node_action.node_uuid,

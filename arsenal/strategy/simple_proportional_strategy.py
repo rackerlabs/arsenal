@@ -29,6 +29,22 @@ LOG = log.getLogger(__name__)
 
 CONF = cfg.CONF
 
+opts = [
+    cfg.FloatOpt('percentage_to_cache',
+                 default=0.125,
+                 help='The percentage of unprovisioned nodes in each flavor to'
+                 'schedule for image caching. Expressed as a floating '
+                 'point number between 0 and 1 inclusive, '
+                 'where 0 is 0%, 1 is 100%, and 0.5 is 50%.'),
+]
+
+sps_group = cfg.OptGroup(name='simple_proportional_strategy',
+                              title='Simple Proportional Strategy Options')
+
+CONF = cfg.CONF
+CONF.register_group(sps_group)
+CONF.register_opts(opts, sps_group)
+
 
 def build_attribute_set(items, attr_name):
     """Build a set off of a particular attribute of a list of
@@ -116,8 +132,19 @@ def cache_nodes(nodes, num_nodes_needed, images):
 
 
 def how_many_nodes_should_cache(nodes, percentage_to_cache):
-    return int(math.ceil(percentage_to_cache * len(
+    should_cache = int(math.floor(percentage_to_cache * len(
         unprovisioned_nodes(nodes)))) - len(cached_nodes(nodes))
+    if should_cache < 0:
+        should_cache = 0
+    LOG.debug("Should cache %(should_cache)d node(s), based on number "
+              "of unprovisioned nodes: %(unpro)d, number of cached "
+              "nodes %(cached)d, and the percentage of unprovisioned nodes "
+              "to cache: %(to_cache_percentage)f",
+              {'should_cache': should_cache,
+               'unpro': len(unprovisioned_nodes(nodes)),
+               'cached': len(cached_nodes(nodes)),
+               'to_cache_percentage': percentage_to_cache})
+    return should_cache
 
 
 class InvalidPercentageError(exception.ArsenalException):
@@ -127,10 +154,15 @@ class InvalidPercentageError(exception.ArsenalException):
 
 
 class SimpleProportionalStrategy(object):
-    def __init__(self, percentage_to_cache=0.25):
+    def __init__(self):
+        percentage_to_cache = (
+            CONF.simple_proportional_strategy.percentage_to_cache)
         # Clamp the percentage to reasonable values.
         if percentage_to_cache < 0 or percentage_to_cache > 1:
             raise InvalidPercentageError(percentage=percentage_to_cache)
+
+        LOG.info("Initializing with proportional goal of %(goal)f",
+                 {'goal': percentage_to_cache})
 
         self.percentage_to_cache = percentage_to_cache
         self.current_flavors = []
@@ -164,6 +196,21 @@ class SimpleProportionalStrategy(object):
         decision-making on data made available to it by Arsenal through
         update_current_state.
         """
+        if len(self.current_images) == 0:
+            LOG.warning("No images to cache! Are you sure Arsenal is talking "
+                        "to Glance properly? No directives issued.")
+            return
+
+        if len(self.current_flavors) == 0:
+            LOG.warning("No flavors detected! Are you sure Arsenal is talking "
+                        "to Nova properly? No directives issued.")
+            return
+
+        if len(self.current_nodes) == 0:
+            LOG.warning("No nodes detected! Are you sure Arsenal is talking "
+                        "to Ironic properly? No directives issued.")
+            return
+
         todo = []
 
         # Eject nodes.
@@ -177,13 +224,16 @@ class SimpleProportionalStrategy(object):
         nodes_by_flavor = segregate_nodes(self.current_nodes,
                                           self.current_flavors)
         for flavor_name, flavor_nodes in nodes_by_flavor.iteritems():
-            print("SimpleProportionalStrategy.directives [%s,%d] " % (
-                flavor_name, len(flavor_nodes)))
             num_nodes_needed = how_many_nodes_should_cache(
                 flavor_nodes, self.percentage_to_cache)
+            LOG.debug("Need to cache %(needed)d node(s) for flavor "
+                      "'%(flavor)s'.",
+                      {'needed': num_nodes_needed, 'flavor': flavor_name})
             nodes_to_cache = cache_nodes(flavor_nodes, num_nodes_needed,
                                          self.current_images)
             todo.extend(nodes_to_cache)
+
+        LOG.debug("Issuing %(num)d directives(s).", {'num': len(todo)})
 
         return todo
 
@@ -225,16 +275,14 @@ class SimpleProportionalStrategy(object):
 
     def log_image_differences(self, image_differences):
         for image_name in image_differences['new']:
-            LOG.info("SimpleProportionalStrategy: A new image has been "
-                     "detected. Image name: '%(name)s'",
+            LOG.info("A new image has been detected. Image name: '%(name)s'",
                      {'name': image_name})
         for image_name in image_differences['changed']:
-            LOG.info("SimpleProportionalStrategy: A changed image has been "
-                     "detected. Image name: '%(name)s'",
+            LOG.info("A changed image has been detected. "
+                     "Image name: '%(name)s'",
                      {'name': image_name})
         for image_name in image_differences['retired']:
-            LOG.info("SimpleProportionalStrategy: A new image has been "
-                     "detected. Image name: '%(name)s'",
+            LOG.info("A new image has been detected. Image name: '%(name)s'",
                      {'name': image_name})
 
     def find_flavor_differences(self, new_flavors):
@@ -261,11 +309,9 @@ class SimpleProportionalStrategy(object):
 
     def log_flavor_differences(self, flavor_differences):
         for flavor_name in flavor_differences['new']:
-            LOG.info("SimpleProportionalStrategy: A new flavor has been "
-                     "detected. Flavor name: '%(name)s'",
+            LOG.info("A new flavor has been detected. Flavor name: '%(name)s'",
                      {'name': flavor_name})
 
         for flavor_name in flavor_differences['retired']:
-            LOG.info("SimpleProportionalStrategy: A flavor has been retired. "
-                     "Flavor name: '%s(name)'",
+            LOG.info("A flavor has been retired. Flavor name: '%s(name)'",
                      {'name': flavor_name})
