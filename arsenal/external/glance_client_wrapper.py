@@ -38,8 +38,10 @@ opts = [
     cfg.StrOpt('admin_username',
                help='Glance keystone admin name'),
     cfg.StrOpt('admin_password',
+               secret=True,
                help='Glance keystone admin password.'),
     cfg.StrOpt('admin_auth_token',
+               secret=True,
                help='Glance keystone auth token.'),
     cfg.StrOpt('client_log_level',
                help='Log level override for glanceclient. Set this in '
