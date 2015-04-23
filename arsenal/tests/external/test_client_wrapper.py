@@ -41,6 +41,10 @@ class FakeUnauthorizedException(Exception):
     pass
 
 
+class FakeForbiddenException(Exception):
+    pass
+
+
 class FakeRetryOnThisException(Exception):
     pass
 
@@ -54,7 +58,8 @@ class FakeClientWrapper(client_wrapper.OpenstackClientWrapper):
     def __init__(self):
         super(FakeClientWrapper, self).__init__(
             retry_exceptions=(FakeRetryOnThisException),
-            auth_exceptions=(FakeUnauthorizedException),
+            auth_exceptions=(FakeUnauthorizedException,
+                             FakeForbiddenException),
             name="FakeClient")
 
     def _get_new_client(self):
@@ -116,6 +121,21 @@ class OpenstackClientWrapperTestCase(test_base.TestCase):
         mock_get_new_client.return_value = FAKE_CLIENT
         self.assertRaises(FakeUnexpectedException,
                           self.openstackclient.call, "flavor.list")
+
+    @mock.patch.object(client_wrapper.OpenstackClientWrapper, '_multi_getattr')
+    @mock.patch.object(FakeClientWrapper, '_get_new_client')
+    def test_call_unauthorized_causes_new_clients(self,
+                                                  mock_get_new_client,
+                                                  mock_multi_getattr):
+        cfg.CONF.set_override('call_max_retries', 3, 'client_wrapper')
+        test_obj = mock.Mock()
+        test_obj.side_effect = FakeForbiddenException('Forbidden')
+        mock_multi_getattr.return_value = test_obj
+        mock_get_new_client.return_value = FAKE_CLIENT
+        self.assertRaises(exception.ArsenalException,
+                          self.openstackclient.call,
+                          "flavor.list")
+        self.assertEqual(3, mock_get_new_client.call_count)
 
     def test__multi_getattr_good(self):
         response = self.openstackclient._multi_getattr(FAKE_CLIENT,
