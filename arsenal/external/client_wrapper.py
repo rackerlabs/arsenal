@@ -161,12 +161,9 @@ class OpenstackClientWrapper(object):
                 # wrap the generator with our own, which provides individually
                 # wrapped calls, and return that.
                 if isinstance(result, types.GeneratorType):
-                    gen_list = []
-                    for r in result:
-                        gen_list.append(r)
-                    return gen_list
+                    return list(result)
 
-                return result
+                return list(result)
             except auth_exceptions:
                 # In this case, the authorization token of the cached
                 # client probably expired. So invalidate the cached
