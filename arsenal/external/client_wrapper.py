@@ -163,7 +163,7 @@ class OpenstackClientWrapper(object):
                 if isinstance(result, types.GeneratorType):
                     return list(result)
 
-                return list(result)
+                return result
             except auth_exceptions:
                 # In this case, the authorization token of the cached
                 # client probably expired. So invalidate the cached
