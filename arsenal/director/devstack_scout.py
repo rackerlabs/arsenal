@@ -18,6 +18,7 @@
 from oslo.config import cfg
 
 from arsenal.director import onmetal_scout as onmetal
+import arsenal.external.glance_client_wrapper as gcw
 from arsenal.openstack.common import log
 
 LOG = log.getLogger(__name__)
@@ -34,6 +35,15 @@ def is_baremetal_flavor(flavor):
 
 
 class DevstackScout(onmetal.OnMetalScout):
+    def __init__(self):
+        super(DevstackScout, self).__init__()
+        # NOTE(ClifHouck) OnMetalScout uses pyrax to auth the glance client,
+        # but we shouldn't need that for DevStack, so override that here.
+        # TODO(ClifHouck) Maybe DevStack scout shouldn't derive from
+        # OnMetalScout, and common behavior should be distilled into a base
+        # class/file.
+        self.glance_client = gcw.GlanceClientWrapper()
+
     def retrieve_image_data(self):
         """Get information about images to pass to a CachingStrategy object.
 

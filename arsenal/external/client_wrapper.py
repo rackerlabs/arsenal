@@ -18,6 +18,7 @@
 
 import abc
 import time
+import types
 
 from oslo.config import cfg
 import six
@@ -151,8 +152,18 @@ class OpenstackClientWrapper(object):
             client = self._get_client()
 
             try:
-                return self._multi_getattr(client, method_name)(*args,
-                                                                **kwargs)
+                result = self._multi_getattr(client, method_name)(*args,
+                                                                  **kwargs)
+                # NOTE(ClifHouck): If the return type is a generator,
+                # then force the generator to unwind, because otherwise we
+                # won't get the wrapping behavior this method provides.
+                # FIXME(ClifHouck): Instead of forcing a complete unwind,
+                # wrap the generator with our own, which provides individually
+                # wrapped calls, and return that.
+                if isinstance(result, types.GeneratorType):
+                    return list(result)
+
+                return list(result)
             except auth_exceptions:
                 # In this case, the authorization token of the cached
                 # client probably expired. So invalidate the cached

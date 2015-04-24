@@ -199,17 +199,17 @@ class SimpleProportionalStrategy(object):
         if len(self.current_images) == 0:
             LOG.warning("No images to cache! Are you sure Arsenal is talking "
                         "to Glance properly? No directives issued.")
-            return
+            return []
 
         if len(self.current_flavors) == 0:
             LOG.warning("No flavors detected! Are you sure Arsenal is talking "
                         "to Nova properly? No directives issued.")
-            return
+            return []
 
         if len(self.current_nodes) == 0:
             LOG.warning("No nodes detected! Are you sure Arsenal is talking "
                         "to Ironic properly? No directives issued.")
-            return
+            return []
 
         todo = []
 

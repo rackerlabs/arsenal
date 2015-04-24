@@ -68,12 +68,14 @@ first_not_none = client_wrapper.first_not_none
 class GlanceClientWrapper(client_wrapper.OpenstackClientWrapper):
     """Glance client wrapper class that encapsulates retry logic."""
 
-    def __init__(self):
+    def __init__(self, get_token_fun=None):
         """Initialise the GlanceClientWrapper for use."""
         super(GlanceClientWrapper, self).__init__(
             retry_exceptions=(glanceclient.exc.Conflict),
-            auth_exceptions=(glanceclient.exc.Unauthorized),
+            auth_exceptions=(glanceclient.exc.Unauthorized,
+                             glanceclient.exc.HTTPForbidden),
             name="Glance")
+        self.get_token_fun = get_token_fun
 
     def _get_new_client(self):
         auth_token = first_not_none([CONF.glance.admin_auth_token,
@@ -107,11 +109,16 @@ class GlanceClientWrapper(client_wrapper.OpenstackClientWrapper):
                       }
 
             # NOTE(ClifHouck): Glanceclient doesn't currently actually try
-            # to auth, so get a token from keystone client instead.
-            ks_cli = keystone_client.Client(**kwargs)
-            auth_token_obj = (
-                ks_cli.get_raw_token_from_identity_service(**kwargs))
-            auth_token = auth_token_obj['token']['id']
+            # to auth, so get a token from a user-specified source, or
+            # the keystone client instead.
+            if self.get_token_fun:
+                auth_token = self.get_token_fun(**kwargs)
+            else:
+                ks_cli = keystone_client.Client(**kwargs)
+                auth_token_obj = (
+                    ks_cli.get_raw_token_from_identity_service(**kwargs))
+                auth_token = auth_token_obj['token']['id']
+
             kwargs = {'token': auth_token}
         else:
             kwargs = {'token': auth_token}

@@ -25,9 +25,26 @@ import arsenal.external.nova_client_wrapper as ncw
 from arsenal.openstack.common import log
 from arsenal.strategy import base as sb
 
+
 LOG = log.getLogger(__name__)
 
 CONF = cfg.CONF
+
+
+def get_pyrax_token(**kwargs):
+    # NOTE(ClifHouck) support Rackspace-specific auth for OnMetal.
+    # I'm refusing to put pyrax into requirements for Arsenal, because Arsenal
+    # should not be Rackspace-centric.
+    try:
+        import pyrax
+    except ImportError as e:
+        LOG.error("Could not import pyrax for OnMetalScout. "
+                  "Please install pyrax!")
+        raise e
+
+    pyrax.set_setting('auth_endpoint', kwargs.get('auth_url'))
+    pyrax.set_credentials(kwargs.get('username'), kwargs.get('password'))
+    return pyrax.identity.auth_token
 
 
 def is_node_provisioned(ironic_node):
@@ -101,7 +118,7 @@ class OnMetalScout(scout.Scout):
     def __init__(self):
         self.ironic_client = icw.IronicClientWrapper()
         self.nova_client = ncw.NovaClientWrapper()
-        self.glance_client = gcw.GlanceClientWrapper()
+        self.glance_client = gcw.GlanceClientWrapper(get_pyrax_token)
         self.glance_data = []
 
     def retrieve_node_data(self):

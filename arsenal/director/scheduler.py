@@ -103,7 +103,8 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
                         "level.")
             LOG.debug("Got %(num)s directive(s) from the configured strategy.",
                       {'num': len(directives)})
-            map(lambda a: LOG.debug(str(a)), directives)
+            for directive in directives:
+                LOG.debug(str(directive))
         else:
             LOG.debug("Issuing all directives through configured scout.")
             map(self.scout.issue_action, directives)
