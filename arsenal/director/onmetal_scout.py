@@ -42,6 +42,7 @@ def get_pyrax_token(**kwargs):
                   "Please install pyrax!")
         raise e
 
+    pyrax.set_setting('identity_type', 'rackspace')
     pyrax.set_setting('auth_endpoint', kwargs.get('auth_url'))
     pyrax.set_credentials(kwargs.get('username'), kwargs.get('password'))
     return pyrax.identity.auth_token
