@@ -19,15 +19,8 @@ Features
 
 TODO
 --------
-- Gather metrics, including: 
 
-  - cache hits 
-  - cache misses 
-  - how long it takes to cache a particular image to nodes
-  - cache history
-  - etc
-  
-- Documentation
+See issues in Github project.
 
 .. _Ironic: https://github.com/openstack/ironic
 .. _Nova: https://github.com/openstack/nova
