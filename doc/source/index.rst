@@ -15,6 +15,7 @@ Contents:
    installation
    configuration
    usage
+   design 
    contributing
 
 Indices and tables
