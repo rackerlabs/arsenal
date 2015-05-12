@@ -7,7 +7,7 @@ Arsenal - The Ironic image caching service
 
 About
 --------
-A small Python, Openstack-y service designed to manage image caching to nodes in Ironic_.
+A small, Openstack-y service designed to manage image caching to nodes in Ironic_, written in Python.
 
 Pluggable data-gathering and cache management strategy means Arsenal can be repurposed to work with other services.
 
@@ -17,11 +17,13 @@ Features
 * Pluggable strategy/decisioning around caching images to nodes.
 * Built-in objects which provide client caching and API call retries to: Ironic_, Nova_, and Glance_.
 
-TODO
+Roadmap
 --------
 
-See issues in Github project.
+See issues labeled 'enhancements_' on Arsenal's Github project issues_ page.
 
+.. _issues: https://github.com/rackerlabs/arsenal/issues
+.. _enhancements: https://github.com/rackerlabs/arsenal/labels/enhancement
 .. _Ironic: https://github.com/openstack/ironic
 .. _Nova: https://github.com/openstack/nova
 .. _Glance: https://github.com/openstack/glance

@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to arsenal's documentation!
+Welcome to Arsenal's documentation!
 ========================================================
 
 Contents:
@@ -13,7 +13,9 @@ Contents:
 
    readme
    installation
+   configuration
    usage
+   design 
    contributing
 
 Indices and tables
@@ -22,4 +24,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
