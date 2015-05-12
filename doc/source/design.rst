@@ -1,10 +1,10 @@
-==============
-Arsenal Design
-==============
+======
+Design
+======
 The core of Arsenal's functionality consists of gathering data for input, 
 through :ref:`Scout` objects, to send to Arsenal's caching :ref:`Strategy` 
 objects, which produce directives, which in turn are currently fulfilled by 
-:ref: `Scout` objects. 
+:ref:`Scout` objects. 
       
 Therefore, Scouts deal with the outside world, while Strategies
 provide introspection on data provided by Scouts to direct image caching on
@@ -44,13 +44,17 @@ The DevStack Scout will communicate with Ironic_, Nova_, and Glance_ services,
 and filter for baremetal nodes. See `Ironic documentation`_ on how to 
 configure virtual baremetal nodes for use with DevStack.
 
+For more information see, devstack_scout.py_.
+
 OnMetal Scout
 ~~~~~~~~~~~~~
 
 The OnMetal Scout is designed to work with Rackspace's `OnMetal product`_. 
 While this specific Scout will probably not be directly useful to anyone 
-outside of Rackspace. It can be instructive to view a fully functional, 
+outside of Rackspace, it can still be instructive to view a fully functional, 
 concrete implementation of a Scout. 
+
+For more information, see onmetal_scout.py_.
 
 .. _Strategy:
 
@@ -60,9 +64,9 @@ Strategy
 A Strategy's role lies in consuming data provided by Scouts, and then emitting
 directives to manage imaging caching on nodes. 
 
-Currently two directives are supported. The first is **CacheNode**. 
+Currently, two directives are supported. The first is **CacheNode**. 
 **CacheNode** instructs the endpoint to cache a specific image onto a 
-specific node. The second is **EjectNode** which instructs the endpoint to do 
+specific node. The second is **EjectNode**, which instructs the endpoint to do 
 whatever is necessary to put a previously cached node back into an 
 uncached state.
 
@@ -79,7 +83,7 @@ Currently, SimpleProportionalStrategy is the only Strategy shipping with
 Arsenal.
 
 This object implements a fairly straight-forward strategy: For each available 
-flavor of node, use a constant proportion of nodes available for caching.
+flavor of node, use a constant proportion of available nodes for caching.
 
 Image selection and node selection are currently completely random. 
 
@@ -94,3 +98,5 @@ configure this Strategy.
 .. _OnMetal product: http://www.rackspace.com/cloud/servers/onmetal/
 .. _strategy/base.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/strategy/base.py
 .. _DevStack: http://docs.openstack.org/developer/devstack/ 
+.. _onmetal_scout.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/director/onmetal_scout.py
+.. _devstack_scout.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/director/devstack_scout.py
