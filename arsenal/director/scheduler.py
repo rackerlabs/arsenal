@@ -83,7 +83,7 @@ def get_configured_rate_limiter():
                  'seconds': CONF.director.cache_directive_limiting_period})
     return rate_limiter.RateLimiter(
         limit=CONF.director.cache_directive_rate_limit,
-        cool_down=CONF.director.cache_directive_limiting_period)
+        limit_period=CONF.director.cache_directive_limiting_period)
 
 
 class DirectorScheduler(periodic_task.PeriodicTasks):
@@ -115,7 +115,7 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
         def is_cache_directive(directive):
             return isinstance(directive, sb.CacheNode)
 
-        if self.cache_directive_rate_limiter:
+        if self.cache_directive_rate_limiter is not None:
             cache_directives = filter(is_cache_directive, directives)
             other_directives = filter(lambda d: not is_cache_directive(d),
                                       directives)
