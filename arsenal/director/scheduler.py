@@ -124,9 +124,9 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
             LOG.info("Limited cache directives issued to %(num)d, due to "
                      "rate limiting.", {'num', len(rl_cache_dirs)})
             directives = rl_cache_dirs + other_directives
-            # Clearing the items in the rate limiter so that old cache
-            # directives don't stick around. This doesn't affect rate limiting
-            # behavior otherwise.
+            # NOTE(ClifHouck): Clearing the items in the rate limiter so
+            # that old cache directives don't stick around. This doesn't
+            # affect rate limiting behavior otherwise.
             self.cache_directive_rate_limiter.clear()
         return directives
 
