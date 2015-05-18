@@ -17,6 +17,8 @@
 
 import datetime
 
+ZERO_DELTA = datetime.timedelta()
+
 
 # NOTE(ClifHouck): Wrapper function for datetime.now() to make it mockable.
 def now():
@@ -61,7 +63,7 @@ class RateLimiter(object):
 
     def _update_limit_period(self):
         delta = now() - self.current_limit_period_start
-        if delta >= self.limit_period_delta:
+        if delta >= self.limit_period_delta or delta < ZERO_DELTA:
             self._start_new_limit_period()
 
     def __len__(self):

@@ -23,6 +23,7 @@ from arsenal.tests import base as test_base
 FIVE_SECONDS = datetime.timedelta(0, 5)
 ONE_SECOND = datetime.timedelta(0, 1)
 START_DATETIME = datetime.datetime(2015, 1, 1, 0, 0, 0)
+PAST_DATETIME = datetime.datetime(2014, 7, 30, 0, 0, 0)
 
 
 class RateLimiterTestCase(test_base.TestCase):
@@ -114,3 +115,17 @@ class RateLimiterTestCase(test_base.TestCase):
                               rate_limiter.RateLimiter)
         self.assertIsInstance(rate_limiter.RateLimiter(10000, 1000000),
                               rate_limiter.RateLimiter)
+
+    @mock.patch('arsenal.common.rate_limiter.now')
+    @mock.patch.object(rate_limiter.RateLimiter, '_start_new_limit_period')
+    def test_time_went_backwards(self, new_limit_period_mock, now_mock):
+        """Make certain that if the system time went backwards for any reason,
+           RateLimiter will handle it. Otherwise RateLimiter would break by
+           not starting a new limiting period for possibly a very long time.
+        """
+        now_mock.return_value = START_DATETIME
+        rl_obj = rate_limiter.RateLimiter(3, 5)
+        self.assertEqual(START_DATETIME, rl_obj.current_limit_period_start)
+        now_mock.return_value = PAST_DATETIME
+        rl_obj.withdraw_items()
+        self.assertTrue(new_limit_period_mock.called)
