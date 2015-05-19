@@ -49,13 +49,13 @@ opts = [
     cfg.IntOpt('cache_directive_rate_limit',
                default=0,
                help='Limits how many cache directives that can be issued by'
-               'arsenal before triggering a cool-down which prevents more'
-               'cache directives from being issued until the cool-down '
-               'expires.'),
+                    'arsenal before triggering a cool-down which prevents more'
+                    'cache directives from being issued until the cool-down '
+                    'expires.'),
     cfg.IntOpt('cache_directive_limiting_period',
                default=300,
                help='Determines the amount of time needed to pass before a '
-               'new rate-limit period for cache directives begins.'),
+                    'new rate-limit period for cache directives begins.'),
 ]
 
 director_group = cfg.OptGroup(name='director',
