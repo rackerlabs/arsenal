@@ -33,6 +33,8 @@ Scout, which is defined in `scout.py`_.
 
 A couple of pre-made Scouts are currently included in Arsenal.
 
+.. _DevStack Scout:
+
 DevStack Scout
 ~~~~~~~~~~~~~~
 
@@ -45,6 +47,8 @@ and filter for baremetal nodes. See `Ironic documentation`_ on how to
 configure virtual baremetal nodes for use with DevStack.
 
 For more information see, devstack_scout.py_.
+
+.. _OnMetal Scout:
 
 OnMetal Scout
 ~~~~~~~~~~~~~

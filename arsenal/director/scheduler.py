@@ -17,6 +17,7 @@
 
 from oslo.config import cfg
 
+from arsenal.common import rate_limiter
 from arsenal.common import util
 from arsenal.openstack.common import log
 from arsenal.openstack.common import periodic_task
@@ -44,7 +45,17 @@ opts = [
                 help='When true, prevents Arsenal from issuing directives. '
                      'Useful for debugging configuration or strategy issues '
                      'in a real environment, without affecting outside '
-                     'services.')
+                     'services.'),
+    cfg.IntOpt('cache_directive_rate_limit',
+               default=0,
+               help='Limits how many cache directives that can be issued by'
+                    'arsenal before triggering a cool-down which prevents more'
+                    'cache directives from being issued until the cool-down '
+                    'expires.'),
+    cfg.IntOpt('cache_directive_limiting_period',
+               default=300,
+               help='Determines the amount of time needed to pass before a '
+                    'new rate-limit period for cache directives begins.'),
 ]
 
 director_group = cfg.OptGroup(name='director',
@@ -62,6 +73,19 @@ def get_configured_scout():
     return loader.loaded_class()
 
 
+def get_configured_rate_limiter():
+    if CONF.director.cache_directive_rate_limit == 0:
+        LOG.info("Cache directives will not be rate limited during this run.")
+        return None
+    LOG.info("Cache directives will be rate limited to %(rate_limit)d "
+             "every %(seconds)d second(s).", {
+                 'rate_limit': CONF.director.cache_directive_rate_limit,
+                 'seconds': CONF.director.cache_directive_limiting_period})
+    return rate_limiter.RateLimiter(
+        limit=CONF.director.cache_directive_rate_limit,
+        limit_period=CONF.director.cache_directive_limiting_period)
+
+
 class DirectorScheduler(periodic_task.PeriodicTasks):
     """Arsenal Director Scheduler class."""
 
@@ -72,6 +96,7 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
         self.flavor_data = []
         self.strat = sb.get_configured_strategy()
         self.scout = get_configured_scout()
+        self.cache_directive_rate_limiter = get_configured_rate_limiter()
 
     def periodic_tasks(self, context, raise_on_error=False):
         return self.run_periodic_tasks(context, raise_on_error)
@@ -86,15 +111,36 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
     def poll_for_image_data(self, context):
         self.image_data = self.scout.retrieve_image_data()
 
+    def rate_limit_cache_directives(self, directives):
+        def is_cache_directive(directive):
+            return isinstance(directive, sb.CacheNode)
+
+        if self.cache_directive_rate_limiter is not None:
+            cache_directives = filter(is_cache_directive, directives)
+            other_directives = filter(lambda d: not is_cache_directive(d),
+                                      directives)
+            self.cache_directive_rate_limiter.add_items(cache_directives)
+            rl_cache_dirs = self.cache_directive_rate_limiter.withdraw_items()
+            LOG.info("Limited cache directives issued to %(num)d, due to "
+                     "rate limiting.", {'num', len(rl_cache_dirs)})
+            directives = rl_cache_dirs + other_directives
+            # NOTE(ClifHouck): Clearing the items in the rate limiter so
+            # that old cache directives don't stick around. This doesn't
+            # affect rate limiting behavior otherwise.
+            self.cache_directive_rate_limiter.clear()
+        return directives
+
     @periodic_task.periodic_task(spacing=CONF.director.directive_spacing)
     def issue_directives(self, context):
-        # It's really important to have node state be as current as possible.
-        # So instead of polling for it, I'm leaving it tied to updating the
-        # state of the strategy.
+        # NOTE(ClifHouck): It's really important to have node state be as
+        # current as possible. So instead of polling for it, I'm leaving it
+        # tied to updating the state of the strategy.
         self.node_data = self.scout.retrieve_node_data()
         self.strat.update_current_state(self.node_data, self.image_data,
                                         self.flavor_data)
         directives = self.strat.directives()
+
+        directives = self.rate_limit_cache_directives(directives)
 
         if CONF.director.dry_run:
             LOG.warning("Director is in dry-run mode. No directives will be "
@@ -105,6 +151,7 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
                       {'num': len(directives)})
             for directive in directives:
                 LOG.debug(str(directive))
+            return
         else:
             LOG.debug("Issuing all directives through configured scout.")
             map(self.scout.issue_action, directives)

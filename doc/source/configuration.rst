@@ -73,7 +73,7 @@ The ``[director]`` section contains options which affect how
 Important Section Options
 +++++++++++++++++++++++++
 
-* **scout** - Configures which Scout will be loaded by ``arsenal-director`` to
+* **scout** - Configures which :ref:`Scout` will be loaded by ``arsenal-director`` to
   gather data from services. The Scout also currently handles issuing 
   directives to endpoints. The format is::
 
@@ -83,8 +83,8 @@ Important Section Options
 
     devstack_scout.DevstackScout
 
-  Would cause ``arsenal-director`` to use the Devstack Scout, which is a Scout
-  provided by Arsenal which is designed to work with Devstack_.
+  Would cause ``arsenal-director`` to use the :ref:`DevStack Scout`, which is 
+  a Scout provided by Arsenal that is designed to work with DevStack_.
 
 .. _dry_run option:
 
@@ -99,6 +99,25 @@ Important Section Options
 * **directive_spacing** - An integer option. Represents time in seconds. 
   Determines how long the Director will wait between issuing new directives 
   returned by the configured Strategy.
+
+Cache Directive Rate Limiting
+#############################
+
+The next two options are related to limiting how many cache directives Arsenal
+will issue within a given period of time. They are tightly coupled and should
+be set together.
+
+* **cache_directive_rate_limit** - An integer option limiting how many 
+  cache directives Arsenal will issue within a period of time delimited by
+  **cache_directive_limiting_period**. Defaults to 0, which indicates no rate
+  limiting of cache directives will occur.
+
+* **cache_directive_limiting_period** - An integer option denoting the period
+  of time, in seconds, to limit Arsenal issuing cache directives to the 
+  limit set by **cache_directive_rate_limit**. Once this period of time passes,
+  Arsenal will again issue cache directives (if the configured :ref:`Strategy` 
+  is returning cache directives) until the rate limit is reached,
+  or until the current time period again passes.
 
 [strategy] Section
 ~~~~~~~~~~~~~~~~~~
