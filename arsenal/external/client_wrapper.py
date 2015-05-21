@@ -169,11 +169,11 @@ class OpenstackClientWrapper(object):
                 # client probably expired. So invalidate the cached
                 # client and the next try will start with a fresh one.
                 self._invalidate_cached_client()
-                LOG.debug("The wrapped %(name)s client became unauthorized. "
-                          "Will attempt to reauthorize and try again." % {
-                              'name': self.name})
+                LOG.info("The wrapped %(name)s client became unauthorized. "
+                         "Will attempt to reauthorize and try again." %
+                         {'name': self.name})
             except retry_exceptions as e:
-                LOG.debug("Got a retry-able exception." + str(e))
+                LOG.info("Got a retry-able exception." + str(e))
                 pass
 
             # We want to perform this logic for all exception cases listed
