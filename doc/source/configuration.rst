@@ -2,20 +2,27 @@
 Configuring Arsenal
 ===================
 
+arsenal.conf
+------------
+Arsenal reads configuration variables from a single file, canonically called
+``arsenal.conf``. The location and name of this configuration file can be
+changed as long as the ``--config-file`` argument to ``arsenal-director`` 
+is set accordingly.
+
 Oslo/Config
------------
+~~~~~~~~~~~
 Arsenal uses the `oslo.config`_ module to parse and load configuration.
 See `oslo.config`_'s documentation for detailed information on the supported
 syntax.
 
 Basic Syntax
-------------
+~~~~~~~~~~~~
 
 That said, the basic syntax of the configuration file is fairly
 straight-forward.
 
 Sections
-~~~~~~~~
+++++++++
 
 Arsenal's configuration file is separated into sections. Each section begins
 with a bracket enclosed string. For example::
@@ -27,7 +34,7 @@ directive will populate that section's configuration options, until another
 section directive is parsed, or the end of the file is reached.
 
 Options
-~~~~~~~
++++++++
 
 Each option has this basic format::
 
@@ -37,7 +44,7 @@ Where <option_name> is the option's name, and <value> is the value to assign
 to the option.
 
 A Short Example
-~~~~~~~~~~~~~~~
++++++++++++++++
 The following::
     
     [director]
@@ -46,12 +53,14 @@ The following::
 Would set the ``dry_run`` option to the boolean value 'True', which belongs to
 the ``[director]`` section.
 
-arsenal.conf
-------------
-Arsenal reads configuration variables from a single file, canonically called
-``arsenal.conf``. The location and name of this configuration file can be changed
-as long as the ``--config-file`` argument to ``arsenal-director`` is updated
-accordingly.
+
+arsenal.conf Sections
+---------------------
+
+There are several sections which comprise ``arsenal.conf``. You may not need
+to include every available section, nor set every option. Please read through
+the following section descriptions to get a sense for what functionality is
+made available through ``arsenal.conf``.
 
 [director] Section
 ~~~~~~~~~~~~~~~~~~
@@ -59,13 +68,12 @@ The ``[director]`` section contains options which affect how
 ``arsenal-director`` gathers information using Scouts.
 
 .. note::
-    See ``arsenal/director/director.py`` for all ``[director]`` configuration 
-    options.
+    See scheduler.py_ for all ``[director]`` configuration options.
 
 Important Section Options
 +++++++++++++++++++++++++
 
-* **scout** - Configures which Scout will be loaded by ``arsenal-director`` to
+* **scout** - Configures which :ref:`Scout` will be loaded by ``arsenal-director`` to
   gather data from services. The Scout also currently handles issuing 
   directives to endpoints. The format is::
 
@@ -75,8 +83,10 @@ Important Section Options
 
     devstack_scout.DevstackScout
 
-  Would cause ``arsenal-director`` to use the Devstack Scout, which is a Scout
-  provided by Arsenal which is designed to work with Devstack_.
+  Would cause ``arsenal-director`` to use the :ref:`DevStack Scout`, which is 
+  a Scout provided by Arsenal that is designed to work with DevStack_.
+
+.. _dry_run option:
 
 * **dry_run** - A boolean option. Setting this option to ``True`` will cause 
   ``arsenal-director`` to run in dry run mode. Which means no directives 
@@ -90,6 +100,74 @@ Important Section Options
   Determines how long the Director will wait between issuing new directives 
   returned by the configured Strategy.
 
+Cache Directive Rate Limiting
+#############################
+
+The next two options are related to limiting how many cache directives Arsenal
+will issue within a given period of time. They are tightly coupled and should
+be set together.
+
+* **cache_directive_rate_limit** - An integer option limiting how many 
+  cache directives Arsenal will issue within a period of time delimited by
+  **cache_directive_limiting_period**. Defaults to 0, which indicates no rate
+  limiting of cache directives will occur.
+
+* **cache_directive_limiting_period** - An integer option denoting the period
+  of time, in seconds, to limit Arsenal issuing cache directives to the 
+  limit set by **cache_directive_rate_limit**. Once this period of time passes,
+  Arsenal will again issue cache directives (if the configured :ref:`Strategy` 
+  is returning cache directives) until the rate limit is reached,
+  or until the current time period again passes.
+
+[strategy] Section
+~~~~~~~~~~~~~~~~~~
+
+This section provides configuration options relevant to all :ref:`Strategy` 
+objects.
+
+module_class
+++++++++++++
+
+The ``[strategy]`` section currently only has a single option: 
+**module_class**. The **module_class** option controls which Strategy object
+is loaded and subsequently used to provide Arsenal's cache decisions. 
+The format of the **module_class** option is as follows::
+
+    <strategy_module_name>.<StrategyClassName>
+
+For example, the default value for **module_class** is::
+
+    simple_proportional_strategy.SimpleProportionalStrategy
+
+This causes the the class ``SimpleProportionalStrategy``, 
+which can be found in the ``simple_proportional_strategy`` module, to be 
+instantiated and used by ``arsenal-director`` to provide cache decisions
+at run-time. The ``simple_proportional_strategy`` module is included as 
+part of Arsenal.
+
+Astute readers will notice the the syntax of this option matches that of 
+**scout** from the ``[director]`` section.
+
+.. _[simple_proportional_strategy] Section:
+
+[simple_proportional_strategy] Section
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Currently, the ``SimpleProportionalStrategy`` class is the only concrete 
+implementation of ``strategy.Strategy`` provided by Arsenal. 
+
+See the :ref:`SimpleProportionalStrategy` section for more information on this 
+:ref:`Strategy`.
+
+Important Section Options
++++++++++++++++++++++++++
+
+**percentage_to_cache** - A floating point number. Valid values range from 
+0 to 1 inclusive. 0 corresponds to 0%, and 1 corresponds to 100%. Controls
+the percentage of unprovisioned/available nodes of a particular flavor to be
+cached at a particular time.
+
+
 [client_wrapper] Section
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -102,7 +180,7 @@ call-retry behavior. This section provides options to configure part of that
 behavior as well as provide credentials to all wrappers.
 
 .. note::
-    Please see ``arsenal/external/client_wrapper.py`` for all 
+    Please see client_wrapper.py_ for all 
     ``[client_wrapper]`` configuration options.
 
 .. important:: 
@@ -129,8 +207,8 @@ This section provides options mainly relating to credentials and the endpoint
 to use to communicate with Nova_.
 
 .. note::
-    Please see ``arsenal/external/nova_client_wrapper.py`` for all 
-    ``[nova]`` configuration options.
+    Please see nova_client_wrapper.py_ for all ``[nova]`` configuration 
+    options.
 
 [ironic] Section
 ~~~~~~~~~~~~~~~~
@@ -139,8 +217,8 @@ This section provides options mainly relating to credentials and the endpoint
 to use to communicate with Ironic_.
 
 .. note::
-    Please see ``arsenal/external/ironic_client_wrapper.py`` for all 
-    ``[ironic]`` configuration options.
+    Please see ironic_client_wrapper.py_ for all ``[ironic]`` configuration 
+    options.
 
 [glance] Section
 ~~~~~~~~~~~~~~~~
@@ -149,11 +227,11 @@ This section provides options mainly relating to credentials and the endpoint
 to use to communicate with Glance_.
 
 .. note::
-    Please see ``arsenal/external/glance_client_wrapper.py`` for all 
-    ``[glance]`` configuration options.
+    Please see glance_client_wrapper.py_ for all ``[glance]`` configuration 
+    options.
 
-A full example configuration
-----------------------------
+A full example arsenal.conf file
+--------------------------------
 
 See the `example Arsenal configuration`_ in the Arsenal source tree to see a 
 full example configuration to use with ``arsenal-director``.
@@ -165,3 +243,8 @@ full example configuration to use with ``arsenal-director``.
 .. _Nova: https://github.com/openstack/nova
 .. _Glance: https://github.com/openstack/glance
 .. _example Arsenal configuration: https://github.com/rackerlabs/arsenal/blob/master/etc/arsenal/arsenal.conf
+.. _ironic_client_wrapper.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/external/ironic_client_wrapper.py
+.. _glance_client_wrapper.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/external/glance_client_wrapper.py
+.. _nova_client_wrapper.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/external/nova_client_wrapper.py
+.. _client_wrapper.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/external/client_wrapper.py 
+.. _scheduler.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/director/scheduler.py
