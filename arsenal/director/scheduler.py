@@ -143,15 +143,13 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
         directives = self.rate_limit_cache_directives(directives)
 
         if CONF.director.dry_run:
-            LOG.warning("Director is in dry-run mode. No directives will be "
-                        "issued during this run. Directives returned by the "
-                        "configured strategy will be sent to the debug log "
-                        "level.")
-            LOG.debug("Got %(num)s directive(s) from the configured strategy.",
-                      {'num': len(directives)})
+            LOG.info("Director is in dry-run mode. No directives will be "
+                     "issued during this run.")
+            LOG.info("Got %(num)s directive(s) from the configured strategy.",
+                     {'num': len(directives)})
             for directive in directives:
-                LOG.debug(str(directive))
+                LOG.info(str(directive))
             return
         else:
-            LOG.debug("Issuing all directives through configured scout.")
+            LOG.info("Issuing all directives through configured scout.")
             map(self.scout.issue_action, directives)

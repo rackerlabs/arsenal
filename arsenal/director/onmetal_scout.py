@@ -181,9 +181,9 @@ class OnMetalScout(scout.Scout):
         return None
 
     def issue_cache_node(self, cache_node_action):
-        LOG.debug("Issuing cache node operation on node %(node)s with "
-                  "image %(image)s", {'node': cache_node_action.node_uuid,
-                                      'image': cache_node_action.image_uuid})
+        LOG.info("Issuing cache node operation on node %(node)s with "
+                 "image %(image)s", {'node': cache_node_action.node_uuid,
+                                     'image': cache_node_action.image_uuid})
         glance_image_data = self._find_glance_image(cache_node_action)
 
         if glance_image_data is None:
@@ -212,8 +212,8 @@ class OnMetalScout(scout.Scout):
             LOG.exception(e)
 
     def issue_eject_node(self, eject_node_action):
-        LOG.debug("Issuing eject node command on node '%(node)s'.",
-                  {'node': eject_node_action.node_uuid})
+        LOG.info("Issuing eject node command on node '%(node)s'.",
+                 {'node': eject_node_action.node_uuid})
         try:
             self.ironic_client.call('node.set_provision_state',
                                     node_uuid=eject_node_action.node_uuid,
