@@ -172,8 +172,8 @@ class OpenstackClientWrapper(object):
                 LOG.info("The wrapped %(name)s client became unauthorized. "
                          "Will attempt to reauthorize and try again." %
                          {'name': self.name})
-            except retry_exceptions as e:
-                LOG.info("Got a retry-able exception." + str(e))
+            except retry_exceptions as err:
+                LOG.exception("Got a retry-able exception: %s", err)
                 pass
 
             # We want to perform this logic for all exception cases listed
