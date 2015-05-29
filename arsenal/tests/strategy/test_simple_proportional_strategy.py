@@ -193,8 +193,8 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         ejection_directives = filter(
             lambda direct: isinstance(direct, sb.EjectNode),
             directives or [sb.CacheNode('a', 'b', 'c')])
-        ejected_node_uuids = sps.build_attribute_set(ejection_directives,
-                                                     'node_uuid')
+        ejected_node_uuids = sb.build_attribute_set(ejection_directives,
+                                                    'node_uuid')
         for node in env['nodes']:
             # Make sure that cached nodes with invalid images are ejected.
             if node.cached_image_uuid == INVALID_IMAGE.uuid and node.cached:
