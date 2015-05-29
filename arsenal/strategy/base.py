@@ -21,6 +21,9 @@ from oslo.config import cfg
 import six
 
 from arsenal.common import util
+from arsenal.openstack.common import log
+
+LOG = log.getLogger(__name__)
 
 opts = [
     cfg.StrOpt('module_class',
@@ -157,3 +160,108 @@ class CachingStrategy(object):
         system state.
         """
         pass
+
+
+def find_image_differences(current_image_list, new_image_list):
+    """Find differences between current image state and
+    previous. Did anything change? Which images specifically changed
+    their UUIDs? Are some images no longer present at all?
+
+    Returns a dictionary of three attributes: 'new', 'changed', and
+    'retired'. Each attribute is a set of image names.
+    'new' - Totally new image names.
+    'changed' - Images with the same name, but their UUID has changed.
+    'retired' - Image name which was previously present, but has since
+        disappeared.
+    """
+    old_image_names = build_attribute_set(current_image_list, 'name')
+    new_image_names = build_attribute_set(new_image_list, 'name')
+
+    new_images = new_image_names.difference(old_image_names)
+    retired_images = old_image_names.difference(new_image_names)
+
+    # Find 'changed' images
+    # This is a bit trickier since we need to check for changing UUIDs.
+    same_names = old_image_names.intersection(new_image_names)
+    old_image_dict = build_attribute_dict(current_image_list, 'name')
+    new_image_dict = build_attribute_dict(new_image_list, 'name')
+    changed_images = set()
+    for name in same_names:
+        new_image_obj = new_image_dict[name]
+        old_image_obj = old_image_dict[name]
+        # If the UUID of the image has changed, then we know the
+        # underlying image has changed somehow.
+        if new_image_obj.uuid != old_image_obj.uuid:
+            changed_images.add(name)
+
+    return {'new': new_images,
+            'changed': changed_images,
+            'retired': retired_images}
+
+
+def log_image_differences(image_differences):
+    for image_name in image_differences['new']:
+        LOG.info("A new image has been detected. Image name: '%(name)s'",
+                 {'name': image_name})
+    for image_name in image_differences['changed']:
+        LOG.info("A changed image has been detected. "
+                 "Image name: '%(name)s'",
+                 {'name': image_name})
+    for image_name in image_differences['retired']:
+        LOG.info("A new image has been detected. Image name: '%(name)s'",
+                 {'name': image_name})
+
+
+def find_flavor_differences(current_flavors, new_flavors):
+    """Do a diff on flavors last seen and new set of flavors.
+    return differences.
+
+    Assumes that nodes with a particular flavor name are homogeneous, and
+    will not change node specifications without an accompaying name change.
+
+    Returns a dictionary with two attributes: 'new', and 'retired'.
+    'new' - New flavor names.
+    'retired' - Flavor names no longer present.
+    All valid keys will map to sets of image names
+    as strings.
+    """
+    previous_flavor_names = build_attribute_set(current_flavors,
+                                                'name')
+    new_flavor_names = build_attribute_set(new_flavors, 'name')
+
+    totally_new_flavors = new_flavor_names.difference(
+        previous_flavor_names)
+    retired_flavors = previous_flavor_names.difference(new_flavor_names)
+    return {'new': totally_new_flavors, 'retired': retired_flavors}
+
+
+def log_flavor_differences(flavor_differences):
+    for flavor_name in flavor_differences['new']:
+        LOG.info("A new flavor has been detected. Flavor name: '%(name)s'",
+                 {'name': flavor_name})
+
+    for flavor_name in flavor_differences['retired']:
+        LOG.info("A flavor has been retired. Flavor name: '%s(name)'",
+                 {'name': flavor_name})
+
+
+def build_attribute_set(items, attr_name):
+    """Build a set off of a particular attribute of a list of
+    objects. Adds 'None' to the set if one or more of the
+    objects in items is missing the attribute specified by
+    attr_name.
+    """
+    attribute_set = set()
+    for item in items:
+        attribute_set.add(getattr(item, attr_name, None))
+    return attribute_set
+
+
+def build_attribute_dict(items, attr_name):
+    """Build a dict from a list of items and one of their attributes to make
+    querying the collection easier.
+    """
+    attr_dict = {}
+    for item in items:
+        attr_dict[getattr(item, attr_name)] = item
+    return attr_dict
