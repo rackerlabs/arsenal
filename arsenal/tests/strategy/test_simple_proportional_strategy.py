@@ -28,27 +28,9 @@ from oslo.config import cfg
 from arsenal.strategy import base as sb
 from arsenal.strategy import simple_proportional_strategy as sps
 from arsenal.tests import base as test_base
+from arsenal.tests.strategy import test_strategy_base as sb_test
 
 CONF = cfg.CONF
-
-
-def name_starts_with(node, letter):
-    return node.node_uuid[0] == letter
-
-
-TEST_FLAVORS = [
-    sb.FlavorInput("IO", lambda node: name_starts_with(node, 'I')),
-    sb.FlavorInput("Compute", lambda node: name_starts_with(node, 'C')),
-    sb.FlavorInput("Memory", lambda node: name_starts_with(node, 'M')),
-]
-
-TEST_IMAGES = [
-    sb.ImageInput("Ubuntu", "aaaa", "abcd"),
-    sb.ImageInput("CentOS", "bbbb", "efgh"),
-    sb.ImageInput("CoreOS", "cccc", "ijkl"),
-    sb.ImageInput("Redhat", "dddd", "mnop"),
-    sb.ImageInput("Windows", "eeee", "qrst")
-]
 
 INVALID_IMAGE = sb.ImageInput("Windows95", "abcd", "uvwx")
 
@@ -78,7 +60,7 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         node_counts = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]
         flavors = ["IO", "Compute", "Memory"]
         images_with_invalid = []
-        images_with_invalid.extend(TEST_IMAGES)
+        images_with_invalid.extend(sb_test.TEST_IMAGES)
         images_with_invalid.append(INVALID_IMAGE)
         for n_count in node_counts:
             print("Building random nodes for random-nodes(%d)" % n_count)
@@ -103,8 +85,8 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
 
         # Defaults
         for env_name, env_dict in self.environments.iteritems():
-            env_dict['flavors'] = TEST_FLAVORS
-            env_dict['images'] = TEST_IMAGES
+            env_dict['flavors'] = sb_test.TEST_FLAVORS
+            env_dict['images'] = sb_test.TEST_IMAGES
 
     def test_proportion_goal_versus_several_percentages(self):
         print("Starting test_proportion_goal_versus_several_percentages.")
