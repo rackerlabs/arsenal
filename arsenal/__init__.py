@@ -14,6 +14,4 @@
 
 import pbr.version
 
-
-__version__ = pbr.version.VersionInfo(
-    'arsenal').version_string()
+__version__ = pbr.version.VersionInfo('arsenal_director').version_string()
