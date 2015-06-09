@@ -15,7 +15,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
 import pbr.version
 
-version_info = pbr.version.VersionInfo('arsenal')
+version_info = pbr.version.VersionInfo('arsenal_director')
