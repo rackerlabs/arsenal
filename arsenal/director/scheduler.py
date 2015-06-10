@@ -122,7 +122,7 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
             self.cache_directive_rate_limiter.add_items(cache_directives)
             rl_cache_dirs = self.cache_directive_rate_limiter.withdraw_items()
             LOG.info("Limited cache directives issued to %(num)d, due to "
-                     "rate limiting.", {'num', len(rl_cache_dirs)})
+                     "rate limiting.", {'num': len(rl_cache_dirs)})
             directives = rl_cache_dirs + other_directives
             # NOTE(ClifHouck): Clearing the items in the rate limiter so
             # that old cache directives don't stick around. This doesn't
