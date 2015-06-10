@@ -122,6 +122,27 @@ class TestOnMetalScout(base.TestCase):
         self.scout = onmetal.OnMetalScout()
         self.scout.retrieve_image_data()
 
+    def test_is_node_provisioned(self):
+        ironic_node = mock.NonCallableMock()
+
+        # Maintenanced nodes count as provisioned.
+        ironic_node.provision_state = None
+        ironic_node.maintenance = True
+        self.assertTrue(onmetal.is_node_provisioned(ironic_node))
+
+        # Not maintenanced, but has a provision state that is not 'available'.
+        ironic_node.provision_state = "cleaning"
+        ironic_node.maintenance = False
+        self.assertTrue(onmetal.is_node_provisioned(ironic_node))
+
+        # Not maintenanced, and has a provision state that is 'available'.
+        ironic_node.provision_state = "available"
+        self.assertFalse(onmetal.is_node_provisioned(ironic_node))
+
+        # No provision state nor in maintenance, so not provisioned.
+        ironic_node.provision_state = None
+        self.assertFalse(onmetal.is_node_provisioned(ironic_node))
+
     @mock.patch.object(client_wrapper.OpenstackClientWrapper, 'call')
     def test_issue_cache_node_good_image(self, wrapper_call_mock):
         cache_node_action = strat_base.CacheNode('node_uuid',
