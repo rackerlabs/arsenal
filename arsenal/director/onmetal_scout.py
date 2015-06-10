@@ -49,7 +49,13 @@ def get_pyrax_token(**kwargs):
 
 
 def is_node_provisioned(ironic_node):
-    return ironic_node.provision_state is not None
+    # NOTE(ClifHouck): In some versions of the Ironic API, the node's
+    # provision_state is None when the node is not provisioned.
+    # We treat these nodes as having aprovision_state of available.
+    provision_state = ironic_node.provision_state or 'available'
+    # A node is 'provisioned' for arsenal's purposes if the node is not
+    # available or the node is in maintenance mode.
+    return provision_state != 'available' or ironic_node.maintenance
 
 
 def is_node_cached(ironic_node):
