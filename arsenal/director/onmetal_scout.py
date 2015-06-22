@@ -221,8 +221,15 @@ class OnMetalScout(scout.Scout):
         LOG.info("Issuing eject node command on node '%(node)s'.",
                  {'node': eject_node_action.node_uuid})
         try:
+            LOG.debug("Sending %(node)s to 'managed' state.",
+                      {'node': eject_node_action.node_uuid})
             self.ironic_client.call('node.set_provision_state',
                                     node_uuid=eject_node_action.node_uuid,
-                                    state='DELETED')
+                                    state='MANAGE')
+            LOG.debug("Sending %(node)s to 'provide' state.",
+                      {'node': eject_node_action.node_uuid})
+            self.ironic_client.call('node.set_provision_state',
+                                    node_uuid=eject_node_action.node_uuid,
+                                    state='PROVIDE')
         except exc.ArsenalException as e:
             LOG.exception(e)
