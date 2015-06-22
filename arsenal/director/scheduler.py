@@ -117,6 +117,8 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
 
         if self.cache_directive_rate_limiter is not None:
             cache_directives = filter(is_cache_directive, directives)
+            LOG.info("Got %(num)d cache directives from the strategy.",
+                     {'num': len(cache_directives)})
             other_directives = filter(lambda d: not is_cache_directive(d),
                                       directives)
             self.cache_directive_rate_limiter.add_items(cache_directives)
