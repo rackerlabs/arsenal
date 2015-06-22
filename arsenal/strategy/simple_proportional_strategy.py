@@ -82,7 +82,9 @@ def eject_nodes(nodes, image_uuids):
     """
     ejections = []
     for node in nodes:
-        if (node.cached and node.cached_image_uuid not in image_uuids):
+        if (not node.provisioned and
+                node.cached and
+                node.cached_image_uuid not in image_uuids):
             ejections.append(sb.EjectNode(node.node_uuid))
             # This marks the node internally so it's not
             # considered currently cached anymore. The strategy may issue
