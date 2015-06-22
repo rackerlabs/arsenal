@@ -207,3 +207,16 @@ class TestOnMetalScout(base.TestCase):
                               [r.name for r in result],
                               "retrieve_image_data did not properly filter "
                               "for onmetal images!")
+
+    @mock.patch.object(client_wrapper.OpenstackClientWrapper, 'call')
+    def test_issue_eject_node_calls_manage_and_provide(self,
+                                                       wrapper_call_mock):
+        eject_node_action = strat_base.EjectNode('node_uuid')
+        self.scout.issue_eject_node(eject_node_action)
+        calls = [
+            mock.call('node.set_provision_state', node_uuid='node_uuid',
+                      state='MANAGE'),
+            mock.call('node.set_provision_state', node_uuid='node_uuid',
+                      state='PROVIDE')
+        ]
+        wrapper_call_mock.assert_has_calls(calls)
