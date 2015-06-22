@@ -215,8 +215,8 @@ class TestOnMetalScout(base.TestCase):
         self.scout.issue_eject_node(eject_node_action)
         calls = [
             mock.call('node.set_provision_state', node_uuid='node_uuid',
-                      state='MANAGE'),
+                      state='manage'),
             mock.call('node.set_provision_state', node_uuid='node_uuid',
-                      state='PROVIDE')
+                      state='provide')
         ]
         wrapper_call_mock.assert_has_calls(calls)
