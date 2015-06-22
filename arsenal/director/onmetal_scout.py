@@ -225,11 +225,11 @@ class OnMetalScout(scout.Scout):
                       {'node': eject_node_action.node_uuid})
             self.ironic_client.call('node.set_provision_state',
                                     node_uuid=eject_node_action.node_uuid,
-                                    state='MANAGE')
+                                    state='manage')
             LOG.debug("Sending %(node)s to 'provide' state.",
                       {'node': eject_node_action.node_uuid})
             self.ironic_client.call('node.set_provision_state',
                                     node_uuid=eject_node_action.node_uuid,
-                                    state='PROVIDE')
+                                    state='provide')
         except exc.ArsenalException as e:
             LOG.exception(e)
