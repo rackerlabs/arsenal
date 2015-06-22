@@ -159,6 +159,20 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
                 "of cache directives should be zero, but got %d" % (
                     cache_directive_count)))
 
+    def test_dont_eject_provisioned_nodes(self):
+        """Don't try to eject nodes which are considered provisioned."""
+        strategy = sps.SimpleProportionalStrategy()
+        invalid_cached_and_provisioned_node = {
+            'nodes': [sb.NodeInput("caaa", "Compute", True, True,
+                                   INVALID_IMAGE)],
+            'flavors': sb_test.TEST_FLAVORS,
+            'images': sb_test.TEST_IMAGES
+        }
+        strategy.update_current_state(**invalid_cached_and_provisioned_node)
+        directives = strategy.directives()
+        self.assertTrue(len(directives) == 0,
+                        "Trying to eject a provisioned node!")
+
     def test_node_ejection_behavior(self):
         """Perform the ejection test for all test environments."""
         for env_name, env in self.environments.iteritems():
