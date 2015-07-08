@@ -128,8 +128,7 @@ objects.
 module_class
 ++++++++++++
 
-The ``[strategy]`` section currently only has a single option: 
-**module_class**. The **module_class** option controls which Strategy object
+The **module_class** option controls which Strategy object
 is loaded and subsequently used to provide Arsenal's cache decisions. 
 The format of the **module_class** option is as follows::
 
@@ -147,6 +146,47 @@ part of Arsenal.
 
 Astute readers will notice the the syntax of this option matches that of 
 **scout** from the ``[director]`` section.
+
+.. _image_weights:
+
+image_weights
++++++++++++++
+
+**image_weights** is a dictionary option where the keys are names of images as
+strings, and the values are the associated weights as integers. This dictionary
+is referred to by Arsenal whenever a built-in image selection function, such as
+``arsenal.strategy.choose_weighted_images_force_distribution``, has to make a
+decision on which image(s) to choose to cache to available nodes.
+
+.. important::
+    The keys of **image_weights** must exactly match the names of images as
+    reported by the configured Scout object. This typically means image names
+    reported by Glance. Otherwise the configured weights will not be properly
+    applied.
+
+Images with higher weights will tend to be picked more frequently, and
+similarly those with lower weights will tend to be picked less frequently.
+
+Example weight dictionary::
+
+    image_weights = {
+        'Ubuntu': 10,
+        'CoreOS': 5,
+        'Windows': 2,
+        'SteamOS': 1
+    }
+
+In the above example the ``Ubuntu`` image will be picked twice as often as the
+``CoreOS`` image, and ten times as often as the ``SteamOS`` image. If you had
+18 nodes to cache, then you can reasonably expect 10 nodes to have the
+``Ubuntu`` image cached, 5 nodes to have the ``CoreOS`` image cached, and so
+on.
+
+.. note::
+    If no weights are specified, meaning **image_weights** is left undefined,
+    then the default weight for each image will be 1, implying that every
+    image should have an equal chance of being cached.
+
 
 .. _[simple_proportional_strategy] Section:
 
