@@ -23,7 +23,7 @@ Tests for `onmetal_scout` module.
 """
 
 import mock
-from oslo.config import cfg
+from oslo_config import cfg
 
 import arsenal.director.onmetal_scout as onmetal
 from arsenal.external import client_wrapper

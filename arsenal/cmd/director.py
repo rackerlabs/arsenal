@@ -21,8 +21,12 @@ The Arsenal Image Caching Service
 
 import sys
 
+from oslo_config import cfg
+from oslo_service import service
+
 from arsenal.common import service as arsenal_service
-from arsenal.openstack.common import service
+
+CONF = cfg.CONF
 
 
 def main():
@@ -30,5 +34,5 @@ def main():
     arsenal_service.prepare_service(sys.argv)
 
     scheduling_service = arsenal_service.ArsenalService()
-    launcher = service.launch(scheduling_service)
+    launcher = service.launch(CONF, scheduling_service)
     launcher.wait()

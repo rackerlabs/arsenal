@@ -23,7 +23,7 @@ behavior appears to be correct.
 from __future__ import division
 import random
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from arsenal.strategy import base as sb
 from arsenal.strategy import simple_proportional_strategy as sps

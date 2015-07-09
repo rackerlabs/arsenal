@@ -17,13 +17,14 @@
 
 import logging
 
-from oslo.config import cfg
+from oslo_config import cfg
+from oslo_log import log
+from oslo_service import service
 
 from arsenal.common import config
-from arsenal.openstack.common import log
-from arsenal.openstack.common import service
 
 LOG = log.getLogger(__name__)
+CONF = cfg.CONF
 
 
 class ArsenalService(service.Service):
@@ -36,7 +37,7 @@ class ArsenalService(service.Service):
 
     def start(self):
         LOG.info('Starting Arsenal service with the following options:')
-        cfg.CONF.log_opt_values(LOG, logging.INFO)
+        CONF.log_opt_values(LOG, logging.INFO)
         super(ArsenalService, self).start()
         LOG.info('Started Arsenal service.')
         self.tg.add_dynamic_timer(self.scheduler.periodic_tasks, context={})
@@ -47,5 +48,12 @@ class ArsenalService(service.Service):
 
 
 def prepare_service(argv=[]):
+    # Setup logging.
+    log.register_options(CONF)
+    log.set_defaults()
+
+    # NOTE(ClifHouck): Important to parse configuration options before we
+    # setup logging.
     config.parse_args(argv)
-    log.setup('arsenal')
+
+    log.setup(CONF, 'arsenal')

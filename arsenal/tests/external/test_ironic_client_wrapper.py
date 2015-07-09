@@ -15,7 +15,7 @@
 
 from ironicclient import client as ironic_client
 import mock
-from oslo.config import cfg
+from oslo_config import cfg
 
 from arsenal.external import ironic_client_wrapper as client_wrapper
 from arsenal.tests import base as test_base

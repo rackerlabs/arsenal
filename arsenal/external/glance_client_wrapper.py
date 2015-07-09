@@ -18,11 +18,11 @@
 import glanceclient
 from glanceclient.v2 import client
 from keystoneclient.v2_0 import client as keystone_client
-from oslo.config import cfg
+from oslo_config import cfg
+from oslo_log import log as logging
 
 from arsenal.common import exception
 from arsenal.external import client_wrapper
-from arsenal.openstack.common import log as logging
 
 LOG = logging.getLogger(__name__)
 

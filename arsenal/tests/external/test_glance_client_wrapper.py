@@ -17,7 +17,7 @@
 from glanceclient.v2 import client as glance_client
 from keystoneclient.v2_0 import client as keystone_client
 import mock
-from oslo.config import cfg
+from oslo_config import cfg
 
 from arsenal.external import glance_client_wrapper as client_wrapper
 from arsenal.tests import base as test_base

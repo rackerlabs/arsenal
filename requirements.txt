@@ -2,16 +2,15 @@
 # of appearance. Changing the order has an impact on the overall integration
 # process, which may cause wedges in the gate later.
 
-# Control oslo tightly for now.
-oslo.config==1.14.0,
-oslo.i18n==2.1.0,
-oslo.serialization==1.6.0,
-oslo.utils==1.8.0,
 
 pbr==1.2.0
 Babel==1.3
-eventlet==0.17.3
+
+oslo.log==1.6.0
+oslo.service==0.3.0
+oslo.config==1.14.0
+
 python-ironicclient==0.7.0
 python-novaclient==2.26.0
-python-glanceclient==0.16.1
+python-glanceclient==0.19.0
 python-keystoneclient==1.6.0

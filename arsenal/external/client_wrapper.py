@@ -20,11 +20,11 @@ import abc
 import time
 import types
 
-from oslo.config import cfg
+from oslo_config import cfg
+from oslo_log import log as logging
 import six
 
 from arsenal.common import exception
-from arsenal.openstack.common import log as logging
 
 
 LOG = logging.getLogger(__name__)

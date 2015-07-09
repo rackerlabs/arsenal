@@ -16,7 +16,7 @@
 #    under the License.
 
 import mock
-from oslo.config import cfg
+from oslo_config import cfg
 
 from arsenal.director import scheduler
 from arsenal.strategy import base as sb

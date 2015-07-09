@@ -20,10 +20,10 @@ from __future__ import division
 import math
 import random
 
-from oslo.config import cfg
+from oslo_config import cfg
+from oslo_log import log
 
 from arsenal.common import exception
-from arsenal.openstack.common import log
 from arsenal.strategy import base as sb
 
 LOG = log.getLogger(__name__)
