@@ -176,7 +176,6 @@ class TestImageWeights(test_base.TestCase):
         super(TestImageWeights, self).setUp()
         self._setup_weights()
         CONF.set_override('image_weights', self.WEIGHTED_IMAGES, 'strategy')
-        sb.get_default_image_weight.DEFAULT_IMAGE_WEIGHT = None
 
     def _setup_weights(self):
         self.NO_WEIGHTS = {}
@@ -191,16 +190,6 @@ class TestImageWeights(test_base.TestCase):
             'Minix': 4
         }
 
-    def test_get_default_image_weight_no_weights(self):
-        CONF.set_override('image_weights', self.NO_WEIGHTS, 'strategy')
-        default_weight = sb.get_default_image_weight()
-        self.assertEqual(1, default_weight)
-
-    def test_get_default_image_weight_with_weights(self):
-        default_weight = sb.get_default_image_weight()
-        self.assertNotEqual(1, default_weight)
-        self.assertTrue(default_weight > 1)
-
     def test_get_image_weights(self):
         weights_by_name = sb.get_image_weights(
             ['Ubuntu', 'CoreOS', 'SomeWeirdImage'])
@@ -209,14 +198,14 @@ class TestImageWeights(test_base.TestCase):
 
         self.assertEqual(5, weights_by_name['Ubuntu'])
         self.assertEqual(10, weights_by_name['CoreOS'])
-        self.assertEqual(sb.get_default_image_weight(),
+        self.assertEqual(CONF.strategy.default_image_weight,
                          weights_by_name['SomeWeirdImage'])
 
         random_image_names = ['bunch', 'of', 'random', 'image', 'names']
         weights_by_name = sb.get_image_weights(random_image_names)
         self.assertItemsEqual(weights_by_name.keys(), random_image_names)
         for key, value in weights_by_name.iteritems():
-            self.assertEqual(sb.get_default_image_weight(), value)
+            self.assertEqual(CONF.strategy.default_image_weight, value)
 
     def test_determine_image_distribution(self):
         TEST_NODE_SET = [

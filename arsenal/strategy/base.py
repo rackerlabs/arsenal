@@ -19,7 +19,6 @@ from __future__ import division
 
 import abc
 import collections
-import math
 
 from oslo.config import cfg
 import six
@@ -39,9 +38,13 @@ opts = [
                 help='A dictionary where the keys are image names and the '
                      'values are their assigned weights to use when picking '
                      'images to cache to nodes. Image names should be strings '
-                     'and weights should be integers. Images with larger '
-                     'weights will be more likely to be cached than those '
-                     'with lower weights.')
+                     'and weights should be non-negative integers. '
+                     'Images with larger weights will be more likely to be '
+                     'cached than those with lower weights.'),
+    cfg.IntOpt('default_image_weight',
+               default=1,
+               help='The integral weight to use if a given image has '
+                    'no corresponding entry in image_weights. Default is 1.')
 ]
 
 strategy_group = cfg.OptGroup(name='strategy',
@@ -279,33 +282,9 @@ def build_attribute_dict(items, attr_name):
     return attr_dict
 
 
-def get_default_image_weight():
-    """Get the default weight to use for images."""
-    if get_default_image_weight.DEFAULT_IMAGE_WEIGHT is None:
-        if len(CONF.strategy.image_weights.keys()) == 0:
-            get_default_image_weight.DEFAULT_IMAGE_WEIGHT = 1
-        else:
-            # This takes the average of supplied weights and sets that
-            # as the default weight.
-            weight_sum = sum([
-                weight for key, weight in
-                CONF.strategy.image_weights.iteritems()])
-            get_default_image_weight.DEFAULT_IMAGE_WEIGHT = (
-                int(math.floor(
-                    weight_sum / len(CONF.strategy.image_weights.keys()))))
-            # Since we're expecting non-negative integers as weights,
-            # clamp the default weight to 1.
-            if get_default_image_weight.DEFAULT_IMAGE_WEIGHT < 1:
-                get_default_image_weight.DEFAULT_IMAGE_WEIGHT = 1
-        LOG.info("Set default image weight to '%(default)d'.",
-                 {'default': get_default_image_weight.DEFAULT_IMAGE_WEIGHT})
-    return get_default_image_weight.DEFAULT_IMAGE_WEIGHT
-get_default_image_weight.DEFAULT_IMAGE_WEIGHT = None
-
-
 def get_image_weights(image_names):
     """Return a dictionary of requested image names to weights."""
-    default_weight = get_default_image_weight()
+    default_weight = CONF.strategy.default_image_weight
     weights_by_name = {}
     for name in image_names:
         weight = CONF.strategy.image_weights.get(name)
@@ -319,7 +298,7 @@ def _determine_image_distribution(nodes):
     """Finds the current distribution of cached images across available nodes.
 
     Returns a dictionary where the keys are image uuids and the values are
-    the intregral frequency of their occurance.
+    the integral frequency of their occurance.
     """
     cached_images = [node.cached_image_uuid for node in nodes
                      if (node.cached_image_uuid is not None and
@@ -334,13 +313,13 @@ def _determine_image_distribution(nodes):
 def choose_weighted_images_forced_distribution(num_images, images, nodes):
     """Returns a list of images to cache
 
-    Factors in the current distribution of images cached across nodes.
     Enforces the distribution of images to match the weighted distribution as
-    closely as possible.
+    closely as possible.  Factors in the current distribution of images cached
+    across nodes.
 
     It is important to note that there may be circumstances which prevent this
     function from attaining the desired ideal distribution, but the function
-    will always try its best to reach the desired distirbution based on the
+    will always try its best to reach the desired distribution based on the
     specified weights.
     """
     # Get weighted image information from the strategy base.
@@ -364,7 +343,6 @@ def choose_weighted_images_forced_distribution(num_images, images, nodes):
     scale_factor = 1
     if weight_sum != 0:
         scale_factor = total_desired_cached / weight_sum
-    print("Scale factor: %f" % (scale_factor))
 
     # NOTE(ClifHouck): The scaled weights will not be integers, but that's OK.
     # This is more accurate than forcing the scaled weights to integral
