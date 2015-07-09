@@ -15,7 +15,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from __future__ import division
+
 import abc
+import collections
 
 from oslo.config import cfg
 import six
@@ -30,6 +33,18 @@ opts = [
                default=('simple_proportional_strategy.'
                         'SimpleProportionalStrategy'),
                help='The strategy module to load.'),
+    cfg.DictOpt('image_weights',
+                default={},
+                help='A dictionary where the keys are image names and the '
+                     'values are their assigned weights to use when picking '
+                     'images to cache to nodes. Image names should be strings '
+                     'and weights should be non-negative integers. '
+                     'Images with larger weights will be more likely to be '
+                     'cached than those with lower weights.'),
+    cfg.IntOpt('default_image_weight',
+               default=1,
+               help='The integral weight to use if a given image has '
+                    'no corresponding entry in image_weights. Default is 1.')
 ]
 
 strategy_group = cfg.OptGroup(name='strategy',
@@ -265,3 +280,94 @@ def build_attribute_dict(items, attr_name):
     for item in items:
         attr_dict[getattr(item, attr_name)] = item
     return attr_dict
+
+
+def get_image_weights(image_names):
+    """Return a dictionary of requested image names to weights."""
+    default_weight = CONF.strategy.default_image_weight
+    weights_by_name = {}
+    for name in image_names:
+        weight = CONF.strategy.image_weights.get(name)
+        if weight is None:
+            weight = default_weight
+        weights_by_name[name] = weight
+    return weights_by_name
+
+
+def _determine_image_distribution(nodes):
+    """Finds the current distribution of cached images across available nodes.
+
+    Returns a dictionary where the keys are image uuids and the values are
+    the integral frequency of their occurance.
+    """
+    cached_images = [node.cached_image_uuid for node in nodes
+                     if (node.cached_image_uuid is not None and
+                         node.cached and
+                         not node.provisioned)]
+    current_image_distribution = collections.defaultdict(lambda: 0)
+    for image_uuid in cached_images:
+        current_image_distribution[image_uuid] += 1
+    return current_image_distribution
+
+
+def choose_weighted_images_forced_distribution(num_images, images, nodes):
+    """Returns a list of images to cache
+
+    Enforces the distribution of images to match the weighted distribution as
+    closely as possible.  Factors in the current distribution of images cached
+    across nodes.
+
+    It is important to note that there may be circumstances which prevent this
+    function from attaining the desired ideal distribution, but the function
+    will always try its best to reach the desired distribution based on the
+    specified weights.
+    """
+    # Get weighted image information from the strategy base.
+    weights_by_name = get_image_weights([image.name for image in images])
+    image_uuids_to_names = {image.uuid: image.name for image in images}
+
+    uuid_distribution = _determine_image_distribution(nodes)
+    # Translate uuids to names.
+    named_distribution = collections.defaultdict(lambda: 0)
+    for uuid, frequency in uuid_distribution.iteritems():
+        named_distribution[image_uuids_to_names[uuid]] = frequency
+
+    # Scale the desired distribution to match the number of nodes to be in
+    # the cache.
+    weight_sum = sum([weights_by_name[image.name] for image in images])
+
+    num_cached_nodes = len([node for node in nodes if
+                            node.cached and not node.provisioned])
+    total_desired_cached = num_cached_nodes + num_images
+
+    scale_factor = 1
+    if weight_sum != 0:
+        scale_factor = total_desired_cached / weight_sum
+
+    # NOTE(ClifHouck): The scaled weights will not be integers, but that's OK.
+    # This is more accurate than forcing the scaled weights to integral
+    # factors.
+    scaled_weights = {
+        image.name: scale_factor * weights_by_name[image.name]
+        for image in images
+    }
+
+    # Take the difference of the desired distribution with the current
+    # one.
+    distribution_difference = [
+        [image, (scaled_weights[image.name] - named_distribution[image.name])]
+        for image in images
+    ]
+
+    # Now pick the images to cache.
+    picked_images = []
+    for n in range(0, num_images):
+        most_needed_image_pair = max(distribution_difference,
+                                     key=lambda pair: pair[1])
+        # Adds the most needed image.
+        picked_images.append(most_needed_image_pair[0])
+        # Update the distribution to reflect the selected image being
+        # scheduled to cache onto a node.
+        most_needed_image_pair[1] -= 1
+
+    return picked_images

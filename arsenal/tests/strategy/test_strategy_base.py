@@ -20,7 +20,10 @@ Exposes tests which exercise functionality provided by arsenal.strategy.base.
 """
 
 from __future__ import division
+import collections
 import copy
+import math
+import random
 
 from oslo.config import cfg
 
@@ -165,3 +168,178 @@ class TestStrategyBase(test_base.TestCase):
                           'retired': set(['IO'])},
                          sb.find_flavor_differences(TEST_FLAVORS,
                                                     flavors_with_all_diffs))
+
+
+class TestImageWeights(test_base.TestCase):
+
+    def setUp(self):
+        super(TestImageWeights, self).setUp()
+        self._setup_weights()
+        CONF.set_override('image_weights', self.WEIGHTED_IMAGES, 'strategy')
+
+    def _setup_weights(self):
+        self.NO_WEIGHTS = {}
+        self.WEIGHTED_IMAGES = {
+            'Ubuntu': 5,
+            'CoreOS': 10,
+            'Windows': 3,
+            'Redhat': 2,
+            'CentOS': 4,
+            'Arch': 1,
+            'TempleOS': 8,
+            'Minix': 4
+        }
+
+    def test_get_image_weights(self):
+        weights_by_name = sb.get_image_weights(
+            ['Ubuntu', 'CoreOS', 'SomeWeirdImage'])
+        self.assertItemsEqual(weights_by_name.keys(),
+                              ['Ubuntu', 'CoreOS', 'SomeWeirdImage'])
+
+        self.assertEqual(5, weights_by_name['Ubuntu'])
+        self.assertEqual(10, weights_by_name['CoreOS'])
+        self.assertEqual(CONF.strategy.default_image_weight,
+                         weights_by_name['SomeWeirdImage'])
+
+        random_image_names = ['bunch', 'of', 'random', 'image', 'names']
+        weights_by_name = sb.get_image_weights(random_image_names)
+        self.assertItemsEqual(weights_by_name.keys(), random_image_names)
+        for key, value in weights_by_name.iteritems():
+            self.assertEqual(CONF.strategy.default_image_weight, value)
+
+    def test_determine_image_distribution(self):
+        TEST_NODE_SET = [
+            sb.NodeInput('c-1', 'compute', False, True, 'aaaa'),
+            sb.NodeInput('c-2', 'compute', False, False, 'bbbb'),
+            sb.NodeInput('c-3', 'compute', True, False, 'cccc'),
+            sb.NodeInput('c-4', 'compute', False, True, 'aaaa'),
+            sb.NodeInput('c-5', 'compute', False, True, 'bbbb'),
+            sb.NodeInput('c-6', 'compute', False, True, 'dddd')
+        ]
+        distribution_by_uuid = sb._determine_image_distribution(TEST_NODE_SET)
+        self.assertEqual(2, distribution_by_uuid['aaaa'])
+        self.assertEqual(1, distribution_by_uuid['bbbb'])
+        self.assertEqual(1, distribution_by_uuid['dddd'])
+        self.assertEqual(0, distribution_by_uuid['cccc'])
+
+    def test_choose_weighted_images_forced_distribution(self):
+        test_scenarios = {
+            '10-all nodes available': {
+                'num_images': 10,
+                'images': TEST_IMAGES,
+                'nodes': [sb.NodeInput('c-%d' % (n), 'compute', False, False,
+                                       'aaaa') for n in range(0, 10)]
+            },
+            '100-all nodes available': {
+                'num_images': 50,
+                'images': TEST_IMAGES,
+                'nodes': [sb.NodeInput('c-%d' % (n), 'compute', False, False,
+                                       'aaaa') for n in range(0, 100)]
+            },
+            '1000-all nodes available': {
+                'num_images': 1000,
+                'images': TEST_IMAGES,
+                'nodes': [sb.NodeInput('c-%d' % (n), 'compute', False, False,
+                                       'aaaa') for n in range(0, 1000)]
+            },
+        }
+
+        # Provides a list which coupled with random selection should
+        # closely match the image weights. Therefore already cached nodes
+        # in these scenarios already closely match the distribution.
+        weighted_image_uuids = []
+        for image in TEST_IMAGES:
+            weighted_image_uuids.extend(
+                [image.uuid
+                 for n in range(0, self.WEIGHTED_IMAGES[image.name])])
+
+        images_by_uuids = {image.uuid: image for image in TEST_IMAGES}
+
+        # Generate some more varied scenarios.
+        for num_nodes in [1, 2, 3, 5, 10, 20, 50, 100, 1000, 10000]:
+            new_scenario = {
+                'images': TEST_IMAGES,
+                'num_images': int(math.floor(num_nodes * 0.25)),
+                'nodes': []
+            }
+            for n in range(0, num_nodes):
+                cached = n % 4 == 0
+                provisioned = n % 7 == 0
+                cached_image_uuid = random.choice(weighted_image_uuids)
+                generated_node = sb.NodeInput("c-%d" % (n),
+                                              'compute',
+                                              provisioned,
+                                              cached,
+                                              cached_image_uuid)
+                new_scenario['nodes'].append(generated_node)
+            test_scenarios['%d-random scenario' % (num_nodes)] = new_scenario
+
+        # Now test each scenario.
+        for name, values in test_scenarios.iteritems():
+            print("Testing against '%s' scenario." % (name))
+            picked_images = sb.choose_weighted_images_forced_distribution(
+                **values)
+
+            picked_distribution = collections.defaultdict(lambda: 0)
+            for image in picked_images:
+                picked_distribution[image.name] += 1
+
+            self.assertEqual(values['num_images'], len(picked_images),
+                             "Didn't get the expected number of selected "
+                             "images from "
+                             "choose_weighted_images_forced_distribution")
+
+            num_already_cached = len([node for node in values['nodes']
+                                      if node.cached and not node.provisioned])
+            scale = (num_already_cached + values['num_images']) / sum(
+                [self.WEIGHTED_IMAGES[image.name] for image in TEST_IMAGES])
+
+            already_cached = collections.defaultdict(lambda: 0)
+            for node in values['nodes']:
+                if node.cached and not node.provisioned:
+                    image = images_by_uuids[node.cached_image_uuid]
+                    already_cached[image.name] += 1
+
+            targeted_distribution = {
+                image.name: (picked_distribution[image.name] +
+                             already_cached[image.name])
+                for image in TEST_IMAGES
+            }
+
+            print(''.join(["Picked distribution: %s\n" % (
+                           str(picked_distribution)),
+                           "Already cached distribution: %s\n" % (
+                           str(already_cached)),
+                           "Targeted distribution: %s\n" % (
+                           str(targeted_distribution)),
+                           "Image weights: %s\n" % str(self.WEIGHTED_IMAGES),
+                           "scale factor: %f" % scale]))
+
+            for image in values['images']:
+                print("Inspecting image '%s'." % (image.name))
+                image_weight = self.WEIGHTED_IMAGES[image.name]
+                num_image_already_cached = len([
+                    node for node in values['nodes'] if node.cached and
+                    not node.provisioned and
+                    node.cached_image_uuid == image.uuid])
+                expected_num_of_selected_images = (
+                    int(math.floor(scale * image_weight)) -
+                    num_image_already_cached)
+                # Sometimes an underweighted node will be cached a great deal
+                # more than should be given the current weights. Clamp this
+                # the expectation to zero.
+                if expected_num_of_selected_images < 0:
+                    expected_num_of_selected_images = 0
+                num_picked = len(
+                    [pi for pi in picked_images if pi.name == image.name])
+                failure_msg = (
+                    "The number of selected images for image "
+                    "'%(image_name)s' did not match expectations. "
+                    "Expected %(expected)d and got %(actual)d. " %
+                    {'image_name': image.name,
+                     'expected': expected_num_of_selected_images,
+                     'actual': num_picked})
+                self.assertAlmostEqual(num_picked,
+                                       expected_num_of_selected_images,
+                                       delta=1,
+                                       msg=failure_msg)

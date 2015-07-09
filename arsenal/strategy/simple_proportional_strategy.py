@@ -16,6 +16,7 @@
 #    under the License.
 
 from __future__ import division
+
 import math
 import random
 
@@ -35,7 +36,7 @@ opts = [
                  help='The percentage of unprovisioned nodes in each flavor to'
                  'schedule for image caching. Expressed as a floating '
                  'point number between 0 and 1 inclusive, '
-                 'where 0 is 0%, 1 is 100%, and 0.5 is 50%.'),
+                 'where 0 is 0%, 1 is 100%, and 0.5 is 50%.')
 ]
 
 sps_group = cfg.OptGroup(name='simple_proportional_strategy',
@@ -95,16 +96,20 @@ def eject_nodes(nodes, image_uuids):
 
 def cache_nodes(nodes, num_nodes_needed, images):
     available_nodes = nodes_available_for_caching(nodes)
-    # If we're not meeting or exceeding
-    # our proportion goal, schedule (node, image) pairs to cache
-    # randomly until we would meet our proportion goal.
-    # TODO(ClifHouck): This selection step can probably be
-    # improved.
+
+    # Choose the images to cache in advance, based on how many nodes we should
+    # use for caching.
+    chosen_images = sb.choose_weighted_images_forced_distribution(
+        num_nodes_needed, images, nodes)
+
+    # If we're not meeting or exceeding our proportion goal,
+    # schedule (node, image) pairs to cache until we would meet
+    # our proportion goal.
     nodes_to_cache = []
     random.shuffle(available_nodes)
     for n in range(0, num_nodes_needed):
         node = available_nodes.pop()
-        image = random.choice(images)
+        image = chosen_images.pop()
         nodes_to_cache.append(sb.CacheNode(node.node_uuid,
                                            image.uuid,
                                            image.checksum))
