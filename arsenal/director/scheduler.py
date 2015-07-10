@@ -15,12 +15,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
+from oslo_config import cfg
+from oslo_log import log
+from oslo_service import periodic_task
 
 from arsenal.common import rate_limiter
 from arsenal.common import util
-from arsenal.openstack.common import log
-from arsenal.openstack.common import periodic_task
 from arsenal.strategy import base as sb
 
 LOG = log.getLogger(__name__)
@@ -90,7 +90,7 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
     """Arsenal Director Scheduler class."""
 
     def __init__(self):
-        super(DirectorScheduler, self).__init__()
+        super(DirectorScheduler, self).__init__(CONF)
         self.node_data = []
         self.image_data = []
         self.flavor_data = []

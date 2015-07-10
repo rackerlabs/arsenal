@@ -25,7 +25,7 @@ import copy
 import math
 import random
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from arsenal.strategy import base as sb
 from arsenal.tests import base as test_base

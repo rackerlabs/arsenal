@@ -15,11 +15,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
+from oslo_config import cfg
+from oslo_log import log
 
 from arsenal.director import onmetal_scout as onmetal
 import arsenal.external.glance_client_wrapper as gcw
-from arsenal.openstack.common import log
 
 LOG = log.getLogger(__name__)
 

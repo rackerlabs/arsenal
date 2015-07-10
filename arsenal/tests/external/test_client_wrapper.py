@@ -14,7 +14,7 @@
 #    under the License.
 
 import mock
-from oslo.config import cfg
+from oslo_config import cfg
 
 from arsenal.common import exception
 from arsenal.external import client_wrapper

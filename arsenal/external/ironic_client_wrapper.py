@@ -20,12 +20,11 @@
 # and slightly adapted for Arsenal
 
 import ironicclient
-from oslo.config import cfg
+from oslo_config import cfg
+from oslo_log import log as logging
 
 from arsenal.common import exception
 from arsenal.external import client_wrapper
-# from arsenal.i18n import _
-from arsenal.openstack.common import log as logging
 
 
 LOG = logging.getLogger(__name__)

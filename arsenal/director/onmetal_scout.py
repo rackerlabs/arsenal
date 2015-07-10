@@ -15,14 +15,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
+from oslo_config import cfg
+from oslo_log import log
 
 from arsenal.common import exception as exc
 from arsenal.director import scout
 import arsenal.external.glance_client_wrapper as gcw
 import arsenal.external.ironic_client_wrapper as icw
 import arsenal.external.nova_client_wrapper as ncw
-from arsenal.openstack.common import log
 from arsenal.strategy import base as sb
 
 

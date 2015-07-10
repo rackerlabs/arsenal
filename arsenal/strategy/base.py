@@ -20,11 +20,11 @@ from __future__ import division
 import abc
 import collections
 
-from oslo.config import cfg
+from oslo_config import cfg
+from oslo_log import log
 import six
 
 from arsenal.common import util
-from arsenal.openstack.common import log
 
 LOG = log.getLogger(__name__)
 

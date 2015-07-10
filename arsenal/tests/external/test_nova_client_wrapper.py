@@ -15,7 +15,7 @@
 
 import mock
 from novaclient.v2 import client as nova_client
-from oslo.config import cfg
+from oslo_config import cfg
 
 from arsenal.external import nova_client_wrapper as client_wrapper
 from arsenal.tests import base as test_base
