@@ -68,11 +68,29 @@ Strategy
 A Strategy's role lies in consuming data provided by Scouts, and then emitting
 directives to manage imaging caching on nodes. 
 
-Currently, two directives are supported. The first is **CacheNode**. 
+Directives
+~~~~~~~~~~
+
+Currently, two directives are used by Arsenal's strategies to manage the cache.
+:ref:`Cache Node`, which adds a node to the cache, and :ref:`Eject Node`, which
+will remove a node from the cache.
+
+.. _Cache Node:
+
+Cache Node
+++++++++++
 **CacheNode** instructs the endpoint to cache a specific image onto a 
-specific node. The second is **EjectNode**, which instructs the endpoint to do 
+specific node. This is the main mechanism used to build a fleet of cached
+nodes.
+
+.. _Eject Node:
+
+Eject Node
+++++++++++
+The second is **EjectNode**, which instructs the endpoint to do 
 whatever is necessary to put a previously cached node back into an 
-uncached state.
+uncached state. This directive is necessary if an image cached to a node
+becomes out-of-date.
 
 .. tip::
     If you are thinking about defining your own Strategy object, reading 
