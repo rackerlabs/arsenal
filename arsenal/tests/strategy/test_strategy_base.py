@@ -169,6 +169,48 @@ class TestStrategyBase(test_base.TestCase):
                          sb.find_flavor_differences(TEST_FLAVORS,
                                                     flavors_with_all_diffs))
 
+    def test_build_node_statistics(self):
+        test_nodes = [
+            sb.NodeInput('c-1', 'Compute', False, True, 'aaaa'),
+            sb.NodeInput('c-2', 'Compute', False, True, 'aaaa'),
+            sb.NodeInput('c-3', 'Compute', False, True, 'aaaa'),
+            sb.NodeInput('c-4', 'Compute', True, False, 'aaaa'),
+            sb.NodeInput('c-5', 'Compute', True, False, 'aaaa'),
+            sb.NodeInput('c-6', 'Compute', True, False, 'aaaa'),
+            sb.NodeInput('c-7', 'Compute', False, True, 'bbbb'),
+            sb.NodeInput('c-8', 'Compute', False, True, 'bbbb'),
+            sb.NodeInput('c-9', 'Compute', True, True, 'bbbb'),
+            sb.NodeInput('c-10', 'Compute', False, True, 'cccc'),
+            sb.NodeInput('c-11', 'Compute', False, False, None),
+            sb.NodeInput('c-12', 'Compute', False, False, None),
+        ]
+
+        stats = sb.build_node_statistics(test_nodes, TEST_IMAGES)
+
+        # Make sure the stats match the node inputs above.
+        self.assertEqual(12, stats['total'])
+        self.assertEqual(4, stats['provisioned'])
+        self.assertEqual(8, stats['not provisioned'])
+        self.assertEqual(2, stats['available (not cached)'])
+        self.assertEqual(6, stats['cached (includes \'caching\')'])
+        self.assertEqual(3, stats['images']['Ubuntu'])
+        self.assertEqual(2, stats['images']['CentOS'])
+        self.assertEqual(1, stats['images']['CoreOS'])
+
+        EXPECTED_STATS_KEYS = (
+            'provisioned',
+            'not provisioned',
+            'available (not cached)',
+            'cached (includes \'caching\')',
+            'total',
+            'images'
+        )
+
+        # Do some sanity checks on keys present.
+        self.assertItemsEqual(EXPECTED_STATS_KEYS, stats.keys())
+        self.assertItemsEqual([image.name for image in TEST_IMAGES],
+                              stats['images'].keys())
+
 
 class TestImageWeights(test_base.TestCase):
 
