@@ -100,12 +100,12 @@ Important Section Options
   Determines how long the Director will wait between issuing new directives 
   returned by the configured Strategy.
 
-Cache Directive Rate Limiting
-#############################
+Cache Node Directive Rate Limiting
+##################################
 
-The next two options are related to limiting how many cache directives Arsenal
-will issue within a given period of time. They are tightly coupled and should
-be set together.
+The next two options are related to limiting how many :ref:`Cache Node`
+directives Arsenal will issue within a given period of time. They are tightly 
+coupled and should be set together.
 
 * **cache_directive_rate_limit** - An integer option limiting how many 
   cache directives Arsenal will issue within a period of time delimited by
@@ -118,6 +118,30 @@ be set together.
   Arsenal will again issue cache directives (if the configured :ref:`Strategy` 
   is returning cache directives) until the rate limit is reached,
   or until the current time period again passes.
+
+Eject Node Directive Rate Limiting
+##################################
+
+The next two options are related to limiting how many :ref:`Eject Node`
+directives Arsenal will issue within a given period of time. They are
+tightly coupled and should be set together. 
+
+.. tip::
+    These two options operate identically as the cache directive rate limiting
+    options presented above. Except they apply to ejection directives.
+
+* **eject_directive_rate_limit** - An integer option limiting how many 
+  eject directives Arsenal will issue within a period of time delimited by
+  **eject_directive_limiting_period**. Defaults to 0, which indicates no rate
+  limiting of eject directives will occur.
+
+* **eject_directive_limiting_period** - An integer option denoting the period
+  of time, in seconds, to limit Arsenal issuing eject directives to the 
+  limit set by **eject_directive_rate_limit**. Once this period of time passes,
+  Arsenal will again issue eject directives (if the configured :ref:`Strategy` 
+  is returning eject directives) until the rate limit is reached,
+  or until the current time period again passes.
+
 
 [strategy] Section
 ~~~~~~~~~~~~~~~~~~
