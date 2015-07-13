@@ -56,6 +56,16 @@ opts = [
                default=300,
                help='Determines the amount of time needed to pass before a '
                     'new rate-limit period for cache directives begins.'),
+    cfg.IntOpt('eject_directive_rate_limit',
+               default=0,
+               help='Limits how many node-eject directives that can be issued '
+                    'by arsenal before triggering a cool-down which prevents '
+                    'more ejection directives from being issued until the '
+                    'cool-down expires.'),
+    cfg.IntOpt('eject_directive_limiting_period',
+               default=300,
+               help='Determines the amount of time needed to pass before a '
+                    'new rate-limit period for ejection directives begins.')
 ]
 
 director_group = cfg.OptGroup(name='director',
@@ -73,17 +83,53 @@ def get_configured_scout():
     return loader.loaded_class()
 
 
-def get_configured_rate_limiter():
-    if CONF.director.cache_directive_rate_limit == 0:
-        LOG.info("Cache directives will not be rate limited during this run.")
+def get_configured_rate_limiter(name, rate_limit, limiting_period):
+    if rate_limit == 0:
+        LOG.info("%s directives will not be rate limited during this run." %
+                 (name))
         return None
-    LOG.info("Cache directives will be rate limited to %(rate_limit)d "
+    LOG.info("%(name)s directives will be rate limited to %(rate_limit)d "
              "every %(seconds)d second(s).", {
-                 'rate_limit': CONF.director.cache_directive_rate_limit,
-                 'seconds': CONF.director.cache_directive_limiting_period})
+                 'name': name,
+                 'rate_limit': rate_limit,
+                 'seconds': limiting_period})
     return rate_limiter.RateLimiter(
-        limit=CONF.director.cache_directive_rate_limit,
-        limit_period=CONF.director.cache_directive_limiting_period)
+        limit=rate_limit,
+        limit_period=limiting_period)
+
+
+def get_configured_ejection_rate_limiter():
+    return get_configured_rate_limiter(
+        'Ejection',
+        CONF.director.eject_directive_rate_limit,
+        CONF.director.eject_directive_limiting_period)
+
+
+def get_configured_cache_rate_limiter():
+    return get_configured_rate_limiter(
+        'Cache',
+        CONF.director.cache_directive_rate_limit,
+        CONF.director.cache_directive_limiting_period)
+
+
+def rate_limit_directives(rate_limiter, directives, name, identity_func):
+        if rate_limiter is not None:
+            filtered_directives = filter(identity_func, directives)
+            LOG.info("Got %(num)d %(name)s directives from the strategy.",
+                     {'num': len(filtered_directives), 'name': name})
+            other_directives = filter(lambda d: not identity_func(d),
+                                      directives)
+            rate_limiter.add_items(filtered_directives)
+            rate_limited_directives = rate_limiter.withdraw_items()
+            LOG.info("Limited %(name)s directives issued to %(num)d, due to "
+                     "rate limiting.",
+                     {'num': len(rate_limited_directives), 'name': name})
+            directives = rate_limited_directives + other_directives
+            # NOTE(ClifHouck): Clearing the items in the rate limiter so
+            # that old directives don't stick around. This doesn't
+            # affect rate limiting behavior otherwise.
+            rate_limiter.clear()
+        return directives
 
 
 class DirectorScheduler(periodic_task.PeriodicTasks):
@@ -96,7 +142,8 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
         self.flavor_data = []
         self.strat = sb.get_configured_strategy()
         self.scout = get_configured_scout()
-        self.cache_directive_rate_limiter = get_configured_rate_limiter()
+        self.cache_rate_limiter = get_configured_cache_rate_limiter()
+        self.eject_rate_limiter = get_configured_ejection_rate_limiter()
 
     def periodic_tasks(self, context, raise_on_error=False):
         return self.run_periodic_tasks(context, raise_on_error)
@@ -115,22 +162,19 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
         def is_cache_directive(directive):
             return isinstance(directive, sb.CacheNode)
 
-        if self.cache_directive_rate_limiter is not None:
-            cache_directives = filter(is_cache_directive, directives)
-            LOG.info("Got %(num)d cache directives from the strategy.",
-                     {'num': len(cache_directives)})
-            other_directives = filter(lambda d: not is_cache_directive(d),
-                                      directives)
-            self.cache_directive_rate_limiter.add_items(cache_directives)
-            rl_cache_dirs = self.cache_directive_rate_limiter.withdraw_items()
-            LOG.info("Limited cache directives issued to %(num)d, due to "
-                     "rate limiting.", {'num': len(rl_cache_dirs)})
-            directives = rl_cache_dirs + other_directives
-            # NOTE(ClifHouck): Clearing the items in the rate limiter so
-            # that old cache directives don't stick around. This doesn't
-            # affect rate limiting behavior otherwise.
-            self.cache_directive_rate_limiter.clear()
-        return directives
+        return rate_limit_directives(self.cache_rate_limiter,
+                                     directives,
+                                     'cache',
+                                     is_cache_directive)
+
+    def rate_limit_eject_directives(self, directives):
+        def is_eject_directive(directive):
+            return isinstance(directive, sb.EjectNode)
+
+        return rate_limit_directives(self.eject_rate_limiter,
+                                     directives,
+                                     'eject',
+                                     is_eject_directive)
 
     @periodic_task.periodic_task(spacing=CONF.director.directive_spacing)
     def issue_directives(self, context):
@@ -143,6 +187,7 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
         directives = self.strat.directives()
 
         directives = self.rate_limit_cache_directives(directives)
+        directives = self.rate_limit_eject_directives(directives)
 
         if CONF.director.dry_run:
             LOG.info("Director is in dry-run mode. No directives will be "
