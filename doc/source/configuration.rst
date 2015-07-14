@@ -100,6 +100,14 @@ Important Section Options
   Determines how long the Director will wait between issuing new directives 
   returned by the configured Strategy.
 
+* **log_statistics** - A boolean option. If ``True``, Arsenal will log detailed
+  statistics about nodes at the INFO level every time Arsenal issues
+  directives. Statistics include: number of provisioned nodes,
+  number of available nodes, number of cached nodes, a breakdown of which 
+  images have been cached and at what frequency. Also logs information broken
+  up by flavor of node. If ``False``, no statistics will be logged. Defaults to
+  ``True``.
+
 Cache Node Directive Rate Limiting
 ##################################
 

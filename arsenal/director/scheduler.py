@@ -65,7 +65,12 @@ opts = [
     cfg.IntOpt('eject_directive_limiting_period',
                default=300,
                help='Determines the amount of time needed to pass before a '
-                    'new rate-limit period for ejection directives begins.')
+                    'new rate-limit period for ejection directives begins.'),
+    cfg.BoolOpt('log_statistics',
+                default=True,
+                help='When True, Arsenal will log detailed information about '
+                     'the state of nodes returned by the configured Scout. '
+                     'Including a breakdowns by flavor and images.')
 ]
 
 director_group = cfg.OptGroup(name='director',
@@ -182,8 +187,15 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
         # current as possible. So instead of polling for it, I'm leaving it
         # tied to updating the state of the strategy.
         self.node_data = self.scout.retrieve_node_data()
+
         self.strat.update_current_state(self.node_data, self.image_data,
                                         self.flavor_data)
+
+        if CONF.director.log_statistics:
+            sb.log_overall_node_statistics(self.node_data,
+                                           self.flavor_data,
+                                           self.image_data)
+
         directives = self.strat.directives()
 
         directives = self.rate_limit_cache_directives(directives)

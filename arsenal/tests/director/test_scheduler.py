@@ -54,59 +54,46 @@ class TestScheduler(base.TestCase):
 
         self.scheduler = scheduler.DirectorScheduler()
         self.scheduler.strat.directives = strat_directive_mock
+        self.issue_action_mock = mock.MagicMock()
+        self.scheduler.scout.issue_action = self.issue_action_mock
 
     def test_cache_rate_limit_on(self):
-        issue_action_mock = mock.MagicMock()
-        self.scheduler.scout.issue_action = issue_action_mock
-
         CONF.set_override('cache_directive_rate_limit', 2, 'director')
         self.scheduler.cache_rate_limiter = (
             scheduler.get_configured_cache_rate_limiter())
         self.assertIsNotNone(self.scheduler.cache_rate_limiter)
         self.scheduler.issue_directives(None)
         # 2 cache node directives, plus 5 eject node directives
-        self.assertEqual(7, issue_action_mock.call_count)
+        self.assertEqual(7, self.issue_action_mock.call_count)
 
     def test_cache_rate_limit_off(self):
-        issue_action_mock = mock.MagicMock()
-        self.scheduler.scout.issue_action = issue_action_mock
-
         CONF.set_override('cache_directive_rate_limit', 0, 'director')
         self.scheduler.cache_rate_limiter = (
             scheduler.get_configured_cache_rate_limiter())
         self.assertIsNone(self.scheduler.cache_rate_limiter)
         self.scheduler.issue_directives(None)
         # 5 cache node directives, plus 5 eject node directives
-        self.assertEqual(10, issue_action_mock.call_count)
+        self.assertEqual(10, self.issue_action_mock.call_count)
 
     def test_eject_rate_limit_on(self):
-        issue_action_mock = mock.MagicMock()
-        self.scheduler.scout.issue_action = issue_action_mock
-
         CONF.set_override('eject_directive_rate_limit', 2, 'director')
         self.scheduler.eject_rate_limiter = (
             scheduler.get_configured_ejection_rate_limiter())
         self.assertIsNotNone(self.scheduler.eject_rate_limiter)
         self.scheduler.issue_directives(None)
         # 2 eject node directives, plus 5 cache node directives
-        self.assertEqual(7, issue_action_mock.call_count)
+        self.assertEqual(7, self.issue_action_mock.call_count)
 
     def test_eject_rate_limit_off(self):
-        issue_action_mock = mock.MagicMock()
-        self.scheduler.scout.issue_action = issue_action_mock
-
         CONF.set_override('eject_directive_rate_limit', 0, 'director')
         self.scheduler.eject_rate_limiter = (
             scheduler.get_configured_ejection_rate_limiter())
         self.assertIsNone(self.scheduler.eject_rate_limiter)
         self.scheduler.issue_directives(None)
         # 5 eject node directives, plus 5 cache node directives
-        self.assertEqual(10, issue_action_mock.call_count)
+        self.assertEqual(10, self.issue_action_mock.call_count)
 
     def test_both_rate_limit_on(self):
-        issue_action_mock = mock.MagicMock()
-        self.scheduler.scout.issue_action = issue_action_mock
-
         CONF.set_override('cache_directive_rate_limit', 3, 'director')
         self.scheduler.cache_rate_limiter = (
             scheduler.get_configured_cache_rate_limiter())
@@ -119,22 +106,28 @@ class TestScheduler(base.TestCase):
 
         self.scheduler.issue_directives(None)
         # 3 eject node directives, plus 3 cache node directives
-        self.assertEqual(6, issue_action_mock.call_count)
+        self.assertEqual(6, self.issue_action_mock.call_count)
 
     def test_dry_run_on(self):
-        issue_action_mock = mock.MagicMock()
-        self.scheduler.scout.issue_action = issue_action_mock
-
         # Dry-run enabled, so issue_action should not be called on the scout.
         CONF.set_override('dry_run', True, 'director')
         self.scheduler.issue_directives(None)
-        self.assertFalse(issue_action_mock.called)
+        self.assertFalse(self.issue_action_mock.called)
 
     def test_dry_run_off(self):
-        issue_action_mock = mock.MagicMock()
-        self.scheduler.scout.issue_action = issue_action_mock
-
         # Dry-run disabled, so issue_action will be called.
         CONF.set_override('dry_run', False, 'director')
         self.scheduler.issue_directives(None)
-        self.assertTrue(issue_action_mock.called)
+        self.assertTrue(self.issue_action_mock.called)
+
+    @mock.patch('arsenal.strategy.base.log_overall_node_statistics')
+    def test_log_statistics_on(self, log_mock):
+        CONF.set_override('log_statistics', True, 'director')
+        self.scheduler.issue_directives(None)
+        self.assertTrue(log_mock.called)
+
+    @mock.patch('arsenal.strategy.base.log_overall_node_statistics')
+    def test_log_statistics_off(self, log_mock):
+        CONF.set_override('log_statistics', False, 'director')
+        self.scheduler.issue_directives(None)
+        self.assertFalse(log_mock.called)
