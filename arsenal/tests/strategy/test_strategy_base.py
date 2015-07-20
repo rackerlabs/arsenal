@@ -25,6 +25,7 @@ import copy
 import math
 import random
 
+import mock
 from oslo_config import cfg
 
 from arsenal.strategy import base as sb
@@ -169,8 +170,12 @@ class TestStrategyBase(test_base.TestCase):
                          sb.find_flavor_differences(TEST_FLAVORS,
                                                     flavors_with_all_diffs))
 
-    def test_build_node_statistics(self):
-        test_nodes = [
+
+class TestNodeStatistics(test_base.TestCase):
+
+    def setUp(self):
+        super(TestNodeStatistics, self).setUp()
+        self.test_nodes = [
             sb.NodeInput('c-1', 'Compute', False, True, 'aaaa'),
             sb.NodeInput('c-2', 'Compute', False, True, 'aaaa'),
             sb.NodeInput('c-3', 'Compute', False, True, 'aaaa'),
@@ -183,16 +188,20 @@ class TestStrategyBase(test_base.TestCase):
             sb.NodeInput('c-10', 'Compute', False, True, 'cccc'),
             sb.NodeInput('c-11', 'Compute', False, False, None),
             sb.NodeInput('c-12', 'Compute', False, False, None),
+            # NOTE(ClifHouck): The following uuid should not be present in
+            # TEST_IMAGES. Tests reaction to unknown uuids.
+            sb.NodeInput('c-13', 'Compute', False, True, 'wasd'),
         ]
 
-        stats = sb.build_node_statistics(test_nodes, TEST_IMAGES)
+    def test_build_node_statistics(self):
+        stats = sb.build_node_statistics(self.test_nodes, TEST_IMAGES)
 
         # Make sure the stats match the node inputs above.
-        self.assertEqual(12, stats['total'])
+        self.assertEqual(13, stats['total'])
         self.assertEqual(4, stats['provisioned'])
-        self.assertEqual(8, stats['not provisioned'])
+        self.assertEqual(9, stats['not provisioned'])
         self.assertEqual(2, stats['available (not cached)'])
-        self.assertEqual(6, stats['cached (includes \'caching\')'])
+        self.assertEqual(7, stats['cached (includes \'caching\')'])
         self.assertEqual(3, stats['images']['Ubuntu'])
         self.assertEqual(2, stats['images']['CentOS'])
         self.assertEqual(1, stats['images']['CoreOS'])
@@ -208,8 +217,15 @@ class TestStrategyBase(test_base.TestCase):
 
         # Do some sanity checks on keys present.
         self.assertItemsEqual(EXPECTED_STATS_KEYS, stats.keys())
-        self.assertItemsEqual([image.name for image in TEST_IMAGES],
-                              stats['images'].keys())
+        # Images with non-zero counts. Includes the unrecognized UUID.
+        EXPECTED_IMAGE_NAMES = ['Ubuntu', 'CentOS', 'CoreOS', 'wasd']
+        self.assertItemsEqual(EXPECTED_IMAGE_NAMES, stats['images'].keys())
+
+        @mock.patch.object(sb.LOG, 'info')
+        def test_log_node_statistics(self, info_log_mock):
+            stats = sb.build_node_statistics(self.test_nodes, TEST_IMAGES)
+            sb.log_node_statistics(stats)
+            self.assertTrue(info_log_mock.called)
 
 
 class TestImageWeights(test_base.TestCase):
