@@ -187,7 +187,7 @@ def build_node_statistics(nodes, images):
         'cached (includes \'caching\')':
             len(filter(lambda n: n.cached and not n.provisioned, nodes)),
         'total': len(nodes),
-        'images': {image.name: 0 for image in images}
+        'images': collections.defaultdict(lambda: 0)
     }
 
     image_names_by_uuid = {image.uuid: image.name for image in images}
@@ -197,7 +197,9 @@ def build_node_statistics(nodes, images):
         if (node.cached and
                 not node.provisioned and
                 node.cached_image_uuid is not None):
-            image_name = image_names_by_uuid[node.cached_image_uuid]
+            # If we don't know the name of the image, just return the UUID.
+            image_name = image_names_by_uuid.get(node.cached_image_uuid,
+                                                 node.cached_image_uuid)
             node_statistics['images'][image_name] += 1
 
     return node_statistics
@@ -280,7 +282,7 @@ def log_image_differences(image_differences):
                  "Image name: '%(name)s'",
                  {'name': image_name})
     for image_name in image_differences['retired']:
-        LOG.info("A new image has been detected. Image name: '%(name)s'",
+        LOG.info("A retired image has been detected. Image name: '%(name)s'",
                  {'name': image_name})
 
 
