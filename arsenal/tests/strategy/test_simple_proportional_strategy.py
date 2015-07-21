@@ -57,7 +57,7 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
 
         # Some programmatically constructed. With random provision and
         # cached states. Also, some nodes will have invalid images.
-        node_counts = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]
+        node_counts = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 1000]
         flavors = ["IO", "Compute", "Memory"]
         images_with_invalid = []
         images_with_invalid.extend(sb_test.TEST_IMAGES)
@@ -186,9 +186,10 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         strategy = sps.SimpleProportionalStrategy()
         strategy.update_current_state(**env)
         directives = strategy.directives()
+        if len(directives) == 0:
+            directives = [sb.CacheNode('a', 'b', 'c')]
         ejection_directives = filter(
-            lambda direct: isinstance(direct, sb.EjectNode),
-            directives or [sb.CacheNode('a', 'b', 'c')])
+            lambda direct: isinstance(direct, sb.EjectNode), directives)
         ejected_node_uuids = sb.build_attribute_set(ejection_directives,
                                                     'node_uuid')
         for node in env['nodes']:
@@ -199,6 +200,20 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
                               ("A node with an invalid image UUID was not "
                                "ejected from the cache. Node UUID: %s" % (
                                    node.node_uuid)))
+
+        # Ensure ejected nodes are marked as 'provisioned'.
+        nodes_by_uuid = {node.node_uuid: node for node in env['nodes']}
+        for node_uuid in ejected_node_uuids:
+            self.assertTrue(nodes_by_uuid[node_uuid].provisioned)
+
+        # Make sure the strategy is not trying to cache to ejected nodes.
+        cache_directives = filter(
+            lambda direct: isinstance(direct, sb.CacheNode), directives)
+        cached_node_uuids = sb.build_attribute_set(cache_directives,
+                                                   'node_uuid')
+        self.assertEqual(
+            0, len(cached_node_uuids.intersection(ejected_node_uuids)),
+            "One or more ejected nodes scheduled to cache immediately!")
 
     def test_percentage_clamp(self):
         """Make sure valid percentages are valid, and invalid percentages
