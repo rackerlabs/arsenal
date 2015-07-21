@@ -79,7 +79,7 @@ def segregate_nodes(nodes, flavors):
 
 def eject_nodes(nodes, image_uuids):
     """Check for cached nodes that have old or
-    retired images. Eject them, and mark them as uncached internally.
+    retired images. Eject them, and mark them as provisioned internally.
     """
     ejections = []
     for node in nodes:
@@ -87,10 +87,9 @@ def eject_nodes(nodes, image_uuids):
                 node.cached and
                 node.cached_image_uuid not in image_uuids):
             ejections.append(sb.EjectNode(node.node_uuid))
-            # This marks the node internally so it's not
-            # considered currently cached anymore. The strategy may issue
-            # a CacheNode action for the same node, but not necessarily.
-            node.cached = False
+            # This marks the node internally so it can't be considered for
+            # caching immediately.
+            node.provisioned = True
     return ejections
 
 
