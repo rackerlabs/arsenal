@@ -247,6 +247,18 @@ class TestImageWeights(test_base.TestCase):
             'TempleOS': 8,
             'Minix': 4
         }
+        self.EJECTION_IMAGES = [
+            sb.ImageInput('Ubuntu', "aaaa", "abcd"),
+            sb.ImageInput('CoreOS', "bbbb", "efgh"),
+            sb.ImageInput('Windows', "cccc", "ijkl"),
+            sb.ImageInput('Redhat', "dddd", "mnop"),
+            sb.ImageInput('CentOS', "eeee", "qrst"),
+            sb.ImageInput('Arch', "ffff", "uvwx"),
+            sb.ImageInput('TempleOS', "gggg", "yzzy"),
+            sb.ImageInput('Minix', "hhhh", "xwvu"),
+        ]
+        self.EJECTION_IMAGES_BY_NAME = {image.name: image
+                                        for image in self.EJECTION_IMAGES}
 
     def test_get_image_weights(self):
         weights_by_name = sb.get_image_weights(
@@ -383,7 +395,7 @@ class TestImageWeights(test_base.TestCase):
                 expected_num_of_selected_images = (
                     int(math.floor(scale * image_weight)) -
                     num_image_already_cached)
-                # Sometimes an underweighted node will be cached a great deal
+                # Sometimes an underweighted image will be cached a great deal
                 # more than should be given the current weights. Clamp this
                 # the expectation to zero.
                 if expected_num_of_selected_images < 0:
@@ -401,3 +413,76 @@ class TestImageWeights(test_base.TestCase):
                                        expected_num_of_selected_images,
                                        delta=1,
                                        msg=failure_msg)
+
+    def test_image_weight_guided_node_ejection(self):
+        test_envs = {
+            'Already ideal distribution': {},
+            'Ubuntu+10': {'Ubuntu': 10},
+            'CentOS+5': {'CentOS': 5},
+            'Ubuntu and CoreOS': {'Ubuntu': 10, 'CoreOS': 20},
+            'TempleOS': {'TempleOS': 50},
+            'A lot of minix!': {'Minix': 100},
+            'Many offsets': {'Ubuntu': 4, 'Minix': 3, 'Redhat': 2,
+                             'CoreOS': 1},
+        }
+
+        for env_name, image_offsets in test_envs.iteritems():
+            print("Testing '%(name)s' on image_weight_guided_ejection." % {
+                  'name': env_name})
+            nodes = []
+
+            image_frequencies = copy.deepcopy(self.WEIGHTED_IMAGES)
+            for image_name, offset in image_offsets.iteritems():
+                image_frequencies[image_name] += offset
+
+            # Construct a set of nodes with the desired frequency
+            for image_name, frequency in image_frequencies.iteritems():
+                image = self.EJECTION_IMAGES_BY_NAME[image_name]
+                for n in range(0, frequency):
+                    nodes.append(
+                        sb.NodeInput('c-%d' % len(nodes), 'compute',
+                                     False, True, image.uuid))
+
+            image_list = sb.image_weight_guided_ejection(self.EJECTION_IMAGES,
+                                                         nodes)
+
+            eject_frequencies = collections.defaultdict(lambda: 0)
+            for image in image_list:
+                eject_frequencies[image.name] += 1
+
+            eject_frequency_list = (
+                [(key, value) for key, value in eject_frequencies.iteritems()])
+
+            eject_frequency_list.sort(key=lambda pair: pair[1])
+
+            sorted_ejection_list = (
+                [image_name for image_name, frequency in eject_frequency_list])
+
+            if len(image_offsets) == 0:
+                self.assertEqual(0, len(image_offsets))
+                return
+
+            named_offsets = [(n, o) for n, o in image_offsets.iteritems()]
+            sorted_offsets = sorted(named_offsets, key=lambda pair: pair[1])
+
+            expected_sorted_ejection_list = (
+                [image_name for image_name, offset in sorted_offsets])
+
+            # The number of kinds of images ejected shouldn't exceed our
+            # expected number of kinds.
+            self.assertTrue(
+                (len(sorted_ejection_list) <=
+                    len(expected_sorted_ejection_list)))
+
+            # It's OK if the number of kinds returned is less than expected,
+            # as long as the relative order is maintained.
+            if len(expected_sorted_ejection_list) > len(sorted_ejection_list):
+                length_diff = (len(expected_sorted_ejection_list) -
+                               len(sorted_ejection_list))
+                expected_sorted_ejection_list = (
+                    expected_sorted_ejection_list[length_diff:])
+
+            # We make sure that the relative ejection rate of images matches
+            # our general expectation.
+            self.assertEqual(expected_sorted_ejection_list,
+                             sorted_ejection_list)
