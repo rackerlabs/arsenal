@@ -19,6 +19,8 @@ from __future__ import division
 
 import abc
 import collections
+import copy
+import math
 
 from oslo_config import cfg
 from oslo_log import log
@@ -369,6 +371,83 @@ def _determine_image_distribution(nodes):
     return current_image_distribution
 
 
+def _pick_images(images,
+                 distribution_difference_dict,
+                 num_images,
+                 picker_func,
+                 distribution_mutator_func):
+    """Function to abstract picking images with a distribution differential
+
+    picker_func should return a selection from distribution_difference_dict.
+
+    distribution_mutator_func should mutate either the returned pair or the
+    overall difference dictionary in order to make the next proper
+    selection.
+    """
+
+    # Avoid side effects propogating outside the function.
+    difference_dict = copy.deepcopy(distribution_difference_dict)
+
+    picked_images = []
+    for n in range(0, num_images):
+        most_needed_image_pair = picker_func(difference_dict)
+        # Adds the most 'needed' image, based on picker_func's preference.
+        picked_images.append(most_needed_image_pair[0])
+        # Update the distribution to reflect the selected image being
+        # scheduled to cache onto a node.
+        distribution_mutator_func(most_needed_image_pair, difference_dict)
+
+    return picked_images
+
+
+def _get_scaled_weights(images, scale_factor):
+    # Get weighted image information from the strategy base.
+    weights_by_name = get_image_weights([image.name for image in images])
+
+    # NOTE(ClifHouck): The scaled weights will not be integers, but that's OK.
+    # This is more accurate than forcing the scaled weights to integral
+    # factors.
+    scaled_weights = {
+        image.name: scale_factor * weights_by_name[image.name]
+        for image in images
+    }
+
+    return scaled_weights
+
+
+def _get_scale_factor_for_caching_nodes(num_images_to_cache,
+                                        images,
+                                        nodes):
+    # Get weighted image information from the strategy base.
+    weights_by_name = get_image_weights([image.name for image in images])
+
+    # Scale the desired distribution to match the number of nodes to be in
+    # the cache.
+    weight_sum = sum([weights_by_name[image.name] for image in images])
+
+    num_cached_nodes = len([node for node in nodes if
+                            node.cached and not node.provisioned])
+    total_desired_cached = num_cached_nodes + num_images_to_cache
+
+    scale_factor = 1
+    if weight_sum != 0:
+        scale_factor = total_desired_cached / weight_sum
+
+    return scale_factor
+
+
+def _get_named_image_distribution(images, nodes):
+    # Get the distribution by image uuid and then translate uuids to names.
+    uuid_distribution = _determine_image_distribution(nodes)
+    image_uuids_to_names = {image.uuid: image.name for image in images}
+
+    named_distribution = collections.defaultdict(lambda: 0)
+    for uuid, frequency in uuid_distribution.iteritems():
+        named_distribution[image_uuids_to_names[uuid]] = frequency
+
+    return named_distribution
+
+
 def choose_weighted_images_forced_distribution(num_images, images, nodes):
     """Returns a list of images to cache
 
@@ -380,53 +459,81 @@ def choose_weighted_images_forced_distribution(num_images, images, nodes):
     function from attaining the desired ideal distribution, but the function
     will always try its best to reach the desired distribution based on the
     specified weights.
+
+    num_images - the number (integer) of images to choose to cache
+    images - a list of to ImageInputs consider for caching
+    nodes - a list of NodeInputs to use for determining which images
+        need to be cached the most
     """
-    # Get weighted image information from the strategy base.
-    weights_by_name = get_image_weights([image.name for image in images])
-    image_uuids_to_names = {image.uuid: image.name for image in images}
-
-    uuid_distribution = _determine_image_distribution(nodes)
-    # Translate uuids to names.
-    named_distribution = collections.defaultdict(lambda: 0)
-    for uuid, frequency in uuid_distribution.iteritems():
-        named_distribution[image_uuids_to_names[uuid]] = frequency
-
-    # Scale the desired distribution to match the number of nodes to be in
-    # the cache.
-    weight_sum = sum([weights_by_name[image.name] for image in images])
-
-    num_cached_nodes = len([node for node in nodes if
-                            node.cached and not node.provisioned])
-    total_desired_cached = num_cached_nodes + num_images
-
-    scale_factor = 1
-    if weight_sum != 0:
-        scale_factor = total_desired_cached / weight_sum
-
-    # NOTE(ClifHouck): The scaled weights will not be integers, but that's OK.
-    # This is more accurate than forcing the scaled weights to integral
-    # factors.
-    scaled_weights = {
-        image.name: scale_factor * weights_by_name[image.name]
-        for image in images
-    }
+    named_distribution = _get_named_image_distribution(images, nodes)
 
     # Take the difference of the desired distribution with the current
     # one.
+    scaled_weights = _get_scaled_weights(
+        images, _get_scale_factor_for_caching_nodes(num_images, images, nodes))
     distribution_difference = [
         [image, (scaled_weights[image.name] - named_distribution[image.name])]
         for image in images
     ]
 
-    # Now pick the images to cache.
-    picked_images = []
-    for n in range(0, num_images):
-        most_needed_image_pair = max(distribution_difference,
-                                     key=lambda pair: pair[1])
-        # Adds the most needed image.
-        picked_images.append(most_needed_image_pair[0])
-        # Update the distribution to reflect the selected image being
-        # scheduled to cache onto a node.
-        most_needed_image_pair[1] -= 1
+    def decrement_distribution(distribution_pair, diff_dict):
+        distribution_pair[1] -= 1
 
-    return picked_images
+    return _pick_images(
+        images, distribution_difference, num_images,
+        picker_func=lambda diff: max(diff, key=lambda pair: pair[1]),
+        distribution_mutator_func=decrement_distribution)
+
+
+def image_weight_guided_ejection(images, nodes):
+    """Using the image weights as a guide, determine which images to eject.
+
+    The idea is to figure out which images (by proxy of the node they are
+    cached to) to eject in order to best fulfill the goal of reaching the
+    desired distribution determined by the configured image weights.
+
+    Returns a list of images in order of which to eject first. That is, to best
+    reach the desired distribution, eject a node with the image
+    returned_images[0] first, then eject a node with the image
+    returned_images[1] second, and so on until the list is exhausted.
+
+    This way the consumer of image_weight_guided_ejection can decide to
+    eject just the first n nodes (corresponding to the selected images)
+    from the returned listvalue, and have a reasonable expectation
+    that will do the most good in trying to reach the desired ideal
+    distribution determined by the configured image weights.
+
+    Note that this will return the same number of images as the number of
+    cached nodes found in 'nodes'.
+    """
+    # Determine the current distribution of images across nodes.
+    named_distribution = _get_named_image_distribution(images, nodes)
+
+    # Find the difference between the ideal distribution in the cache,
+    # versus the reality.
+    scaled_weights = _get_scaled_weights(
+        images, _get_scale_factor_for_caching_nodes(0, images, nodes))
+    distribution_difference = [
+        [image, (scaled_weights[image.name] - named_distribution[image.name])]
+        for image in images
+    ]
+
+    # Only those that are cached too much.
+    images_cached_too_much = filter(lambda pair: pair[1] < 0,
+                                    distribution_difference)
+
+    # This computes the approximate number of nodes we should eject to
+    # best reach the desired distribution.
+    max_to_eject = int(math.floor(
+        abs(sum([pair[1] for pair in images_cached_too_much]))))
+
+    # Pick images to eject based on how far above the distribution they
+    # appear in the current cache. In this case, images cached more than they
+    # should be will have negative values in the distribution difference.
+    def increment_distribution(distribution_pair, diff_dict):
+        distribution_pair[1] += 1
+
+    return _pick_images(
+        images, images_cached_too_much, max_to_eject,
+        picker_func=lambda diff: min(diff, key=lambda pair: pair[1]),
+        distribution_mutator_func=increment_distribution)
