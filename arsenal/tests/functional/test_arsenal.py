@@ -56,14 +56,30 @@ class TestArsenalFunctional(test_base.TestCase):
         # start mimic and get provisioned nodes before starting arsenal
         # verify that they were not cached
         self.start_mimic_service()
-        get_provisioned_nodes_before = self.get_ironic_nodes(provisioned=True)
+        get_provisioned_nodes_before = self.get_provisioned_ironic_nodes()
         for each_provisioned_node in get_provisioned_nodes_before:
             self.assertFalse(each_provisioned_node['driver_info'].get('cache_image_id'))
 
         # start arsenal and verify the provisioned nodes do not change
-        self.start_arsenal_service(config_file=self.default_config_file)
-        get_provisioned_nodes_after = self.get_ironic_nodes(provisioned=True)
+        self.start_arsenal_service()
+        get_provisioned_nodes_after = self.get_provisioned_ironic_nodes()
         self.assertEqual(get_provisioned_nodes_before, get_provisioned_nodes_after)
+
+
+class TestArsenalStrategy(test_base.TestCase):
+
+    def setUp(self):
+        """
+        Set the endpoints for ironic and glance.
+        """
+        super(TestArsenalStrategy, self).setUp()
+        self.strategy = 'simple_proportional_strategy.SimpleProportionalStrategy'
+
+    def tearDown(self):
+        """
+        Kill the arsenal and mimic services
+        """
+        super(TestArsenalStrategy, self).tearDown()
 
     def test_arsenal_caches_nodes_per_given_percentage_1(self):
         """
@@ -74,14 +90,14 @@ class TestArsenalFunctional(test_base.TestCase):
         config_values = self.set_config_values(percentage_to_cache=0.3)
         self.create_arsenal_config_file(config_values, file_name=config_file)
 
-        # start mimic and get nodes avaiable not already provisioned
+        # start mimic and get nodes available i.e. not already provisioned
         self.start_mimic_service()
-        before = self.get_ironic_nodes()
+        before = self.get_unprovisioned_ironic_nodes()
 
         # start arsenal and verify the unprovisioned node count remains the same
         self.start_arsenal_service(config_file=config_file,
                                    service_status="Got 0 cache directives from the strategy")
-        after = self.get_ironic_nodes()
+        after = self.get_unprovisioned_ironic_nodes()
         self.assertEqual(len(before), len(after))
 
         # get list of cached nodes and verify that it is 30% of available nodes
@@ -98,14 +114,14 @@ class TestArsenalFunctional(test_base.TestCase):
         config_values = self.set_config_values(percentage_to_cache=0.25)
         self.create_arsenal_config_file(config_values, file_name=config_file)
 
-        # start mimic and get nodes avaiable not already provisioned
+        # start mimic and get nodes available i.e. not already provisioned
         self.start_mimic_service()
-        before = self.get_ironic_nodes()
+        before = self.get_unprovisioned_ironic_nodes()
 
         # start arsenal and verify the unprovisioned node count remains the same
         self.start_arsenal_service(config_file=config_file,
                                    service_status="Got 0 cache directives from the strategy")
-        after = self.get_ironic_nodes()
+        after = self.get_unprovisioned_ironic_nodes()
         self.assertEqual(len(before), len(after))
 
         # get list of cached nodes and verify that it is 100% of available nodes
@@ -127,7 +143,7 @@ class TestArsenalFunctional(test_base.TestCase):
 
     #     # start mimic
     #     self.start_mimic_service()
-    #     before = self.get_ironic_nodes()
+    #     before = self.get_unprovisioned_ironic_nodes()
 
     #     # start arsenal
     #     self.start_arsenal_service(config_file=config_file)
@@ -146,10 +162,10 @@ class TestArsenalFunctional(test_base.TestCase):
     #     """
     #     # start mimic
     #     self.start_mimic_service()
-    #     before = self.get_ironic_nodes()
+    #     before = self.get_unprovisioned_ironic_nodes()
 
     #     # start arsenal
-    #     self.start_arsenal_service(config_file=self.default_config_file)
+    #     self.start_arsenal_service()
 
     #     # get list of cached nodes and verify that images with the most weight are
     #     # cached the most
@@ -167,7 +183,7 @@ class TestArsenalFunctional(test_base.TestCase):
 
     def test_arsenal_ejects_images_fails(self):
         """
-        Arsenal ejects images when an images are out of date, but all cached nodes
+        Arsenal ejects images when images are out of date, but all cached nodes
         are already provisioned
         """
         pass

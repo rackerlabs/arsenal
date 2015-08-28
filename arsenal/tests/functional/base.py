@@ -27,12 +27,6 @@ class TestCase(base.BaseTestCase):
     Base test class for all functional tests
     """
 
-    def generate_config_file_name(self, name='test'):
-        """
-        Create a config file name appending the port to it
-        """
-        return name + str(self.port) + '.conf'
-
     def setUp(self):
         """
         Set the endpoints for ironic and glance.
@@ -46,9 +40,7 @@ class TestCase(base.BaseTestCase):
         self.mimic_ironic_url = "http://localhost:{0}/ironic/v1/nodes/detail".format(self.port)
         self.mimic_glance_url = "http://localhost:{0}/glance/v2/images".format(self.port)
         self.default_config_file = 'test_default' + self.port + '.conf'
-        config_values = self.set_config_values()
-        self.create_arsenal_config_file(config_values,
-                                        file_name=self.default_config_file)
+        self.strategy = None
 
     def tearDown(self):
         """
@@ -77,12 +69,17 @@ class TestCase(base.BaseTestCase):
                     "Starting factory <twisted.web.server.Site instance" in line):
                 break
 
-    def start_arsenal_service(self, config_file='arsenal.conf',
+    def start_arsenal_service(self, config_file=None,
                               service_status="Started Arsenal service"):
         """
-        Start the arsenal service with the given config file
-        TO DO: Check for the 'service started' message in the logs
+        Start the arsenal service with the given config file.
+        If a config file is not provided, create and the use the default config file.
         """
+        if not config_file:
+            config_file = self.default_config_file
+            config_values = self.set_config_values()
+            self.create_arsenal_config_file(config_values,
+                                            file_name=self.default_config_file)
         a = subprocess.Popen(['arsenal-director', '--config-file', config_file,
                               '-v'],
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -93,12 +90,11 @@ class TestCase(base.BaseTestCase):
                     service_status in line):
                 break
 
-    def calculate_percentage_to_be_cached(self, total_nodes, percentage):
+    def generate_config_file_name(self, name='test'):
         """
-        Calulates the nodes to be cached given the percentage and the
-        total_nodes.
+        Create a config file name appending the port to it
         """
-        return (math.floor((total_nodes / 3) * percentage) * 3)
+        return name + str(self.port) + '.conf'
 
     def set_config_values(self, mimic_endpoint='http://localhost',
                           dry_run=False, interval=1, rate_limit=100,
@@ -155,7 +151,8 @@ class TestCase(base.BaseTestCase):
             'simple_proportional_strategy':
                 {'percentage_to_cache': percentage_to_cache},
             'strategy':
-                {'module_class': 'simple_proportional_strategy.SimpleProportionalStrategy',
+                {'module_class': self.strategy or
+                 'simple_proportional_strategy.SimpleProportionalStrategy',
                  'image_weights': image_weights}
         }
 
@@ -173,38 +170,60 @@ class TestCase(base.BaseTestCase):
         config.write(f)
         f.close()
 
-    def get_ironic_nodes(self, provisioned=False):
+    def get_all_ironic_nodes(self):
         """
-        Get the list of ironic nodes with details.
-        Set `provisioned` to True to return all the ironic nodes
-        including the ones already provisioned
+        Get a list of ironic nodes with details.
         """
         nodes_list_response = requests.get(self.mimic_ironic_url)
         self.assertEqual(nodes_list_response.status_code, 200)
         ironic_nodes_list = nodes_list_response.json()['nodes']
-        if provisioned:
-            return [each_node for each_node in ironic_nodes_list
-                    if each_node.get('instance_uuid')]
-        return [each_node for each_node in ironic_nodes_list
-                if not each_node.get('instance_uuid')]
+        return ironic_nodes_list
 
-    def get_cached_ironic_nodes(self, filter_by_flavor=False):
+    def get_provisioned_ironic_nodes(self):
+        """
+        Get a list of provisioned ironic nodes.
+        """
+        all_nodes = self.get_all_ironic_nodes()
+        return [node for node in all_nodes
+                if node.get('instance_uuid')]
+
+    def get_unprovisioned_ironic_nodes(self):
+        """
+        Get a list of unprovisioned ironic nodes.
+        """
+        all_nodes = self.get_all_ironic_nodes()
+        return [node for node in all_nodes
+                if not node.get('instance_uuid')]
+
+    def get_cached_ironic_nodes(self):
+        """
+        Get the cached nodes from the list of nodes in ironic.
+        """
+        all_nodes = self.get_all_ironic_nodes()
+        return [node for node in all_nodes
+                if (node['driver_info'].get('cache_image_id'))]
+
+    def get_cached_ironic_nodes_by_flavor(self):
         """
         Get the cached nodes from the list of nodes in ironic.
         If `filter_by_flavor` is `True` return a map of each flavor to
         cached ironic nodes of that flavor.
         """
-        node_list = self.get_ironic_nodes()
-        if filter_by_flavor:
-            cache_node_by_flavor = {
-                'onmetal-compute1': [], 'onmetal-io1': [], 'onmetal-memory1': []}
-            for each_node in node_list:
-                if (each_node['driver_info'].get('cache_image_id')) and \
-                   (each_node['extra'].get('flavor') in cache_node_by_flavor.keys()):
-                    cache_node_by_flavor[each_node['extra']['flavor']].append(each_node)
-            return cache_node_by_flavor
-        return [each_node for each_node in node_list
-                if (each_node['driver_info'].get('cache_image_id'))]
+        all_nodes = self.get_all_ironic_nodes()
+        cache_node_by_flavor = {'onmetal-compute1': [], 'onmetal-io1': [],
+                                'onmetal-memory1': []}
+        for node in all_nodes:
+            if (node['driver_info'].get('cache_image_id')) and \
+               (node['extra'].get('flavor') in cache_node_by_flavor.keys()):
+                cache_node_by_flavor[node['extra']['flavor']].append(node)
+        return cache_node_by_flavor
+
+    def calculate_percentage_to_be_cached(self, total_nodes, percentage):
+        """
+        Calulates the nodes to be cached given the percentage and the
+        total_nodes.
+        """
+        return (math.floor((total_nodes / self.flavors) * percentage) * self.flavors)
 
     def get_image_id_to_name_map_from_mimic(self):
         """
@@ -223,12 +242,12 @@ class TestCase(base.BaseTestCase):
         """
         image_map = self.get_image_id_to_name_map_from_mimic()
         nodes_per_image = {}
-        for each_node in node_list:
-            image_name = image_map.get(each_node['driver_info']['cache_image_id'])
+        for node in node_list:
+            image_name = image_map.get(node['driver_info']['cache_image_id'])
             if nodes_per_image.get(image_name):
-                nodes_per_image[image_name].append(each_node['uuid'])
+                nodes_per_image[image_name].append(node['uuid'])
             else:
-                nodes_per_image[image_name] = [each_node['uuid']]
+                nodes_per_image[image_name] = [node['uuid']]
         if count:
             nodes_per_image_count = {}
             for key, value in nodes_per_image.iteritems():
