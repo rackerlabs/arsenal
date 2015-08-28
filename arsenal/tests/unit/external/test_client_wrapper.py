@@ -18,7 +18,7 @@ from oslo_config import cfg
 
 from arsenal.common import exception
 from arsenal.external import client_wrapper
-from arsenal.tests import base as test_base
+from arsenal.tests.unit import base as test_base
 
 
 CONF = cfg.CONF

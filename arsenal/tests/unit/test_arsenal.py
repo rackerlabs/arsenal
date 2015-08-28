@@ -19,7 +19,7 @@ test_arsenal
 Tests for `arsenal` module.
 """
 
-from arsenal.tests import base
+from arsenal.tests.unit import base
 
 
 class TestArsenal(base.TestCase):
