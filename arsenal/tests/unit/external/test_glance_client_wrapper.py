@@ -20,7 +20,7 @@ import mock
 from oslo_config import cfg
 
 from arsenal.external import glance_client_wrapper as client_wrapper
-from arsenal.tests import base as test_base
+from arsenal.tests.unit import base as test_base
 
 CONF = cfg.CONF
 

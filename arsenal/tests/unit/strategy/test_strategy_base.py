@@ -29,7 +29,7 @@ import mock
 from oslo_config import cfg
 
 from arsenal.strategy import base as sb
-from arsenal.tests import base as test_base
+from arsenal.tests.unit import base as test_base
 
 CONF = cfg.CONF
 

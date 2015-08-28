@@ -18,8 +18,8 @@ import mock
 from oslo_config import cfg
 
 from arsenal.external import ironic_client_wrapper as client_wrapper
-from arsenal.tests import base as test_base
-from arsenal.tests.external import ironic_utils
+from arsenal.tests.unit import base as test_base
+from arsenal.tests.unit.external import ironic_utils
 
 CONF = cfg.CONF
 

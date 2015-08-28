@@ -27,8 +27,8 @@ from oslo_config import cfg
 
 from arsenal.strategy import base as sb
 from arsenal.strategy import simple_proportional_strategy as sps
-from arsenal.tests import base as test_base
-from arsenal.tests.strategy import test_strategy_base as sb_test
+from arsenal.tests.unit import base as test_base
+from arsenal.tests.unit.strategy import test_strategy_base as sb_test
 
 CONF = cfg.CONF
 

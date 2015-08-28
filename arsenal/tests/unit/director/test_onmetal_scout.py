@@ -28,7 +28,7 @@ from oslo_config import cfg
 import arsenal.director.onmetal_scout as onmetal
 from arsenal.external import client_wrapper
 import arsenal.strategy.base as strat_base
-from arsenal.tests import base
+from arsenal.tests.unit import base
 
 CONF = cfg.CONF
 

@@ -18,7 +18,7 @@ import datetime
 import mock
 
 from arsenal.common import rate_limiter
-from arsenal.tests import base as test_base
+from arsenal.tests.unit import base as test_base
 
 FIVE_SECONDS = datetime.timedelta(0, 5)
 ONE_SECOND = datetime.timedelta(0, 1)

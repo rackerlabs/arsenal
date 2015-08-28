@@ -20,7 +20,7 @@ from oslo_config import cfg
 
 from arsenal.director import scheduler
 from arsenal.strategy import base as sb
-from arsenal.tests import base
+from arsenal.tests.unit import base
 
 CONF = cfg.CONF
 
