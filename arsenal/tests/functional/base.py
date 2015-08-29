@@ -13,38 +13,41 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import requests
-import subprocess
 import ConfigParser
 import math
-from random import randint
+import subprocess
+
+import requests
+
+import random
 
 from oslotest import base
 
 
 class TestCase(base.BaseTestCase):
-    """
-    Base test class for all functional tests
-    """
+    """Base test class for all functional tests."""
 
     def setUp(self):
-        """
-        Set the endpoints for ironic and glance.
+        """Set the endpoints for ironic and glance.
         Create a config file for arsenal with default values
         set in the `set_config_values` method.
         """
         super(TestCase, self).setUp()
         self.processes_to_kill = []
         self.flavors = 3
-        self.port = str(randint(2000, 9000))
-        self.mimic_ironic_url = "http://localhost:{0}/ironic/v1/nodes/detail".format(self.port)
-        self.mimic_glance_url = "http://localhost:{0}/glance/v2/images".format(self.port)
+        self.port = str(random.randint(2000, 9000))
+        self.mimic_endpoint = "http://localhost"
+        self.mimic_ironic_url = "{0}:{1}/ironic/v1/nodes/detail".format(
+            self.mimic_endpoint,
+            self.port)
+        self.mimic_glance_url = "{0}:{1}/glance/v2/images".format(
+            self.mimic_endpoint,
+            self.port)
         self.default_config_file = 'test_default' + self.port + '.conf'
         self.strategy = None
 
     def tearDown(self):
-        """
-        Kill arsenal and mimic processes
+        """Kill arsenal and mimic processes
         """
         super(TestCase, self).tearDown()
 
@@ -56,24 +59,25 @@ class TestCase(base.BaseTestCase):
                     raise
 
     def start_mimic_service(self):
+        """Start the mimic service and wait for the service to be started.
         """
-        Start the mimic service and wait for the service to be started.
-        """
-        p = subprocess.Popen(['twistd', '-n', '--pidfile=twistd{}.pid'.format(self.port),
+        p = subprocess.Popen(['twistd', '-n',
+                              '--pidfile=twistd{}.pid'.format(self.port),
                               'mimic', '-l', self.port],
                              stdout=subprocess.PIPE)
         self.processes_to_kill.append(p)
         while True:
             line = p.stdout.readline()
             if ((line == '' and p.poll() is not None) or  # process done
-                    "Starting factory <twisted.web.server.Site instance" in line):
+                    "Starting factory <twisted.web.server.Site instance"
+                    in line):
                 break
 
     def start_arsenal_service(self, config_file=None,
                               service_status="Started Arsenal service"):
-        """
-        Start the arsenal service with the given config file.
-        If a config file is not provided, create and the use the default config file.
+        """Start the arsenal service with the given config file.
+        If a config file is not provided, create and the use the default
+        config file.
         """
         if not config_file:
             config_file = self.default_config_file
@@ -91,32 +95,30 @@ class TestCase(base.BaseTestCase):
                 break
 
     def generate_config_file_name(self, name='test'):
-        """
-        Create a config file name appending the port to it
+        """Create a config file name appending the port to it
         """
         return name + str(self.port) + '.conf'
 
-    def set_config_values(self, mimic_endpoint='http://localhost',
-                          dry_run=False, interval=1, rate_limit=100,
+    def set_config_values(self, dry_run=False, interval=1, rate_limit=100,
                           percentage_to_cache=0.5, image_weights=None):
-        """
-        Set values for the arsenal config file.
-        """
+        """Set values for the arsenal config file."""
+        mimic_endpoint = self.mimic_endpoint
         port = self.port
-        image_weights = image_weights or {'OnMetal - CentOS 6': 80,
-                                          'OnMetal - CentOS 7': 80,
-                                          'OnMetal - CoreOS (Alpha)': 11,
-                                          'OnMetal - CoreOS (Beta)': 1,
-                                          'OnMetal - CoreOS (Stable)': 5,
-                                          'OnMetal - Debian 7 (Wheezy)': 60,
-                                          'OnMetal - Debian 8 (Jessie)': 14,
-                                          'OnMetal - Debian Testing (Stretch)': 2,
-                                          'OnMetal - Debian Unstable (Sid)': 2,
-                                          'OnMetal - Fedora 21': 1,
-                                          'OnMetal - Fedora 22': 2,
-                                          'OnMetal - Ubuntu 12.04 LTS (Precise Pangolin)': 132,
-                                          'OnMetal - Ubuntu 14.04 LTS (Trusty Tahr)': 163,
-                                          'OnMetal - Ubuntu 15.04 (Vivid Vervet)': 3}
+        image_weights = (image_weights or
+                         {'OnMetal - CentOS 6': 80,
+                          'OnMetal - CentOS 7': 80,
+                          'OnMetal - CoreOS (Alpha)': 11,
+                          'OnMetal - CoreOS (Beta)': 1,
+                          'OnMetal - CoreOS (Stable)': 5,
+                          'OnMetal - Debian 7 (Wheezy)': 60,
+                          'OnMetal - Debian 8 (Jessie)': 14,
+                          'OnMetal - Debian Testing (Stretch)': 2,
+                          'OnMetal - Debian Unstable (Sid)': 2,
+                          'OnMetal - Fedora 21': 1,
+                          'OnMetal - Fedora 22': 2,
+                          'OnMetal - Ubuntu 12.04 LTS (Precise Pangolin)': 132,
+                          'OnMetal - Ubuntu 14.04 LTS (Trusty Tahr)': 163,
+                          'OnMetal - Ubuntu 15.04 (Vivid Vervet)': 3})
         return {
             'director':
                 {'scout': 'onmetal_scout.OnMetalScout',
@@ -136,17 +138,21 @@ class TestCase(base.BaseTestCase):
                  'region_name': 'ORD',
                  'service_name': 'cloudServersOpenStack',
                  'auth_system': 'rackspace',
-                 'os_api_url': '{0}:{1}/identity/v2.0'.format(mimic_endpoint, port),
+                 'os_api_url': '{0}:{1}/identity/v2.0'.format(
+                     mimic_endpoint, port),
                  'os_password': 'test-password'},
             'nova': {},
             'ironic':
                 {'admin_username': 'test-admin',
                  'admin_password': 'test-admin-password',
                  'admin_tenant_name': 99999,
-                 'admin_url': '{0}:{1}/identity/v2.0'.format(mimic_endpoint, port),
-                 'api_endpoint': '{0}:{1}/ironic/v1'.format(mimic_endpoint, port)},
+                 'admin_url': '{0}:{1}/identity/v2.0'.format(
+                     mimic_endpoint, port),
+                 'api_endpoint': '{0}:{1}/ironic/v1'.format(
+                     mimic_endpoint, port)},
             'glance':
-                {'api_endpoint': '{0}:{1}/glance/v2'.format(mimic_endpoint, port),
+                {'api_endpoint': '{0}:{1}/glance/v2'.format(
+                    mimic_endpoint, port),
                  'admin_auth_token': 'any-token-works'},
             'simple_proportional_strategy':
                 {'percentage_to_cache': percentage_to_cache},
@@ -156,9 +162,10 @@ class TestCase(base.BaseTestCase):
                  'image_weights': image_weights}
         }
 
-    def create_arsenal_config_file(self, config_values, file_name='test.conf'):
-        """
-        Given `config_values` object set the values in the arsensal.conf file.
+    def create_arsenal_config_file(self, config_values,
+                                   file_name='test.conf'):
+        """Given `config_values` object set the values in the
+        arsensal.conf file.
         """
         config = ConfigParser.RawConfigParser()
         for each_key in config_values.keys():
@@ -171,8 +178,7 @@ class TestCase(base.BaseTestCase):
         f.close()
 
     def get_all_ironic_nodes(self):
-        """
-        Get a list of ironic nodes with details.
+        """Get a list of ironic nodes with details.
         """
         nodes_list_response = requests.get(self.mimic_ironic_url)
         self.assertEqual(nodes_list_response.status_code, 200)
@@ -180,32 +186,28 @@ class TestCase(base.BaseTestCase):
         return ironic_nodes_list
 
     def get_provisioned_ironic_nodes(self):
-        """
-        Get a list of provisioned ironic nodes.
+        """Get a list of provisioned ironic nodes.
         """
         all_nodes = self.get_all_ironic_nodes()
         return [node for node in all_nodes
                 if node.get('instance_uuid')]
 
     def get_unprovisioned_ironic_nodes(self):
-        """
-        Get a list of unprovisioned ironic nodes.
+        """Get a list of unprovisioned ironic nodes.
         """
         all_nodes = self.get_all_ironic_nodes()
         return [node for node in all_nodes
                 if not node.get('instance_uuid')]
 
     def get_cached_ironic_nodes(self):
-        """
-        Get the cached nodes from the list of nodes in ironic.
+        """Get the cached nodes from the list of nodes in ironic.
         """
         all_nodes = self.get_all_ironic_nodes()
         return [node for node in all_nodes
                 if (node['driver_info'].get('cache_image_id'))]
 
     def get_cached_ironic_nodes_by_flavor(self):
-        """
-        Get the cached nodes from the list of nodes in ironic.
+        """Get the cached nodes from the list of nodes in ironic.
         If `filter_by_flavor` is `True` return a map of each flavor to
         cached ironic nodes of that flavor.
         """
@@ -213,31 +215,32 @@ class TestCase(base.BaseTestCase):
         cache_node_by_flavor = {'onmetal-compute1': [], 'onmetal-io1': [],
                                 'onmetal-memory1': []}
         for node in all_nodes:
-            if (node['driver_info'].get('cache_image_id')) and \
-               (node['extra'].get('flavor') in cache_node_by_flavor.keys()):
+            if (
+                (node['driver_info'].get('cache_image_id')) and
+                (node['extra'].get('flavor') in cache_node_by_flavor.keys())
+            ):
                 cache_node_by_flavor[node['extra']['flavor']].append(node)
         return cache_node_by_flavor
 
     def calculate_percentage_to_be_cached(self, total_nodes, percentage):
-        """
-        Calulates the nodes to be cached given the percentage and the
+        """Calulates the nodes to be cached given the percentage and the
         total_nodes.
         """
-        return (math.floor((total_nodes / self.flavors) * percentage) * self.flavors)
+        return (math.floor((total_nodes / self.flavors) *
+                           percentage) * self.flavors)
 
     def get_image_id_to_name_map_from_mimic(self):
-        """
-        Get a list of images and map the image id to name.
+        """Get a list of images and map the image id to name.
         Returns a dict object mapping the image id to image name
         """
         image_list_response = requests.get(self.mimic_glance_url)
         self.assertEqual(image_list_response.status_code, 200)
-        return {each["id"]: each["name"] for each in image_list_response.json()['images']}
+        return {each["id"]: each["name"]
+                for each in image_list_response.json()['images']}
 
     def list_ironic_nodes_by_image(self, node_list, count=False):
-        """
-        Given a list of nodes, map the nodes of the same image and return
-        list of nodes per image.
+        """Given a list of nodes, map the nodes of the same image and
+        return list of nodes per image.
         If `count` is `True` return the count of nodes per image.
         """
         image_map = self.get_image_id_to_name_map_from_mimic()
