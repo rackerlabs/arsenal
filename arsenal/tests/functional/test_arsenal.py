@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import unittest
+
 from arsenal.tests.functional import base as test_base
 
 
@@ -127,54 +129,91 @@ class TestArsenalStrategy(test_base.TestCase):
             len(after), 0.25)
         self.assertEqual(len(cached_nodes), expected_cached_nodes)
 
-    # def test_arsenal_caches_only_weighted_images(self):
-    #     """When only one image is listed in the image_weight in the config,
-    #     arsenal only caches that image on all nodes.
-    #     """
-    #     image_weight = {'OnMetal - CentOS 6': 100}
-    #     # create arsenal config with dry_run=True
-    #     config_file = self.generate_config_file_name()
-    #     config_values = self.set_config_values(image_weights=image_weight,
-    #                                            percentage_to_cache=1)
-    #     self.create_arsenal_config_file(config_values, file_name=config_file)
+    @unittest.skip("Issue: https://github.com/rackerlabs/arsenal/issues/61")
+    def test_arsenal_caches_only_weighted_images(self):
+        """When the image_weight for an image is set to 0,
+        arsenal will not cache that image.
+        """
+        image_weight = {'OnMetal - CentOS 6': 0}
 
-    #     # start mimic
-    #     self.start_mimic_service()
-    #     before = self.get_unprovisioned_ironic_nodes()
+        # create arsenal config with image_weight set to 0 for one image
+        config_file = self.generate_config_file_name()
+        config_values = self.set_config_values(image_weights=image_weight,
+                                               percentage_to_cache=1)
+        self.create_arsenal_config_file(config_values, file_name=config_file)
 
-    #     # start arsenal
-    #     self.start_arsenal_service(config_file=config_file)
+        # start mimic
+        self.start_mimic_service()
+        before = self.get_unprovisioned_ironic_nodes()
 
-    #     # get list of cached nodes and verify that it is 100% of available
-    #     # nodes are cached with the image listed in image_weights
-    #     cached_nodes = self.get_cached_ironic_nodes()
-    #     self.assertEqual(len(cached_nodes), len(before))
-    #     nodes_per_image = self.list_ironic_nodes_by_image(cached_nodes,
-    #                                                       count=True)
-    #     self.assertEqual(nodes_per_image['OnMetal - CentOS 6'], len(before))
+        # start arsenal
+        self.start_arsenal_service(
+            config_file=config_file,
+            service_status="Got 0 cache directives from the strategy")
 
-    # def test_arsenal_caches_per_assigned_images_weights(self):
-    #     """Arsenal caches images with maximum weights the most and vice versa
-    #     FAIL: Node not cached per image weights
-    #     """
-    #     # start mimic
-    #     self.start_mimic_service()
-    #     before = self.get_unprovisioned_ironic_nodes()
+        # get list of cached nodes and verify that it is 100% of available
+        # nodes are cached without the image with image_weight as 0
+        cached_nodes = self.get_cached_ironic_nodes()
+        self.assertEqual(len(cached_nodes), len(before))
+        nodes_per_image = self.list_ironic_nodes_by_image(cached_nodes,
+                                                          count=True)
+        self.assertFalse(nodes_per_image.get('OnMetal - CentOS 6'))
 
-    #     # start arsenal
-    #     self.start_arsenal_service()
+    @unittest.skip("Issue: https://github.com/rackerlabs/arsenal/issues/61")
+    def test_arsenal_cache_when_default_image_weight_0(self):
+        """When the default_image_weight is set to 0, arsenal will only cache
+        the images with image_weight set to be greater than 0.
+        """
+        image_weight = {'OnMetal - CentOS 6': 120}
 
-    #     # get list of cached nodes and verify that images with the most
-    #     # weight are cached the most
-    #     cached_nodes = self.get_cached_ironic_nodes()
-    #     nodes_per_image = self.list_ironic_nodes_by_image(cached_nodes,
-    #                                                       count=True)
-    #     self.assertTrue(
-    #         nodes_per_image['OnMetal - Ubuntu 14.04 LTS (Trusty Tahr)'] <
-    #         len(before))
-    #     self.assertTrue(
-    #         nodes_per_image['OnMetal - Ubuntu 14.04 LTS (Trusty Tahr)'] >
-    #         nodes_per_image['OnMetal - CoreOS (Beta)'])
+        # create arsenal config with image_weight set to 0 for one image
+        config_file = self.generate_config_file_name()
+        config_values = self.set_config_values(image_weights=image_weight,
+                                               percentage_to_cache=1,
+                                               default_image_weight=0)
+        self.create_arsenal_config_file(config_values, file_name=config_file)
+
+        # start mimic
+        self.start_mimic_service()
+        before = self.get_unprovisioned_ironic_nodes()
+
+        # start arsenal
+        self.start_arsenal_service(
+            config_file=config_file,
+            service_status="Got 0 cache directives from the strategy")
+
+        # get list of cached nodes and verify that it is 100% of available
+        # nodes are cached without the image with image_weight as 0
+        cached_nodes = self.get_cached_ironic_nodes()
+        self.assertEqual(len(cached_nodes), len(before))
+        nodes_per_image = self.list_ironic_nodes_by_image(cached_nodes,
+                                                          count=True)
+        self.assertEqual(nodes_per_image.get('OnMetal - CentOS 6'),
+                         len(before))
+
+    @unittest.skip("Issue: https://github.com/rackerlabs/arsenal/issues/62")
+    def test_arsenal_caches_per_assigned_images_weights(self):
+        """Arsenal caches images with maximum weights the most and vice versa
+        """
+        # start mimic
+        self.start_mimic_service()
+        before = self.get_unprovisioned_ironic_nodes()
+
+        # start arsenal
+        self.start_arsenal_service(
+            service_status="Got 0 cache directives from the strategy")
+
+        # get list of cached nodes and verify that images with the most
+        # weight are cached the most
+        cached_nodes = self.get_cached_ironic_nodes()
+        nodes_per_image = self.list_ironic_nodes_by_image(cached_nodes,
+                                                          count=True)
+        self.assertTrue(
+            nodes_per_image['OnMetal - Ubuntu 14.04 LTS (Trusty Tahr)'] <
+            len(before))
+        self.assertTrue(
+            nodes_per_image['OnMetal - Ubuntu 14.04 LTS (Trusty Tahr)'] >
+            nodes_per_image['OnMetal - CoreOS (Beta)'])
 
     def test_arsenal_ejects_images(self):
         """Arsenal ejects images when an images are out of date."""

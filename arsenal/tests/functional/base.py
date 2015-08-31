@@ -100,7 +100,8 @@ class TestCase(base.BaseTestCase):
         return name + str(self.port) + '.conf'
 
     def set_config_values(self, dry_run=False, interval=1, rate_limit=100,
-                          percentage_to_cache=0.5, image_weights=None):
+                          percentage_to_cache=0.5, image_weights=None,
+                          default_image_weight=1):
         """Set values for the arsenal config file."""
         mimic_endpoint = self.mimic_endpoint
         port = self.port
@@ -159,7 +160,8 @@ class TestCase(base.BaseTestCase):
             'strategy':
                 {'module_class': self.strategy or
                  'simple_proportional_strategy.SimpleProportionalStrategy',
-                 'image_weights': image_weights}
+                 'image_weights': image_weights,
+                 'default_image_weight': default_image_weight}
         }
 
     def create_arsenal_config_file(self, config_values,
