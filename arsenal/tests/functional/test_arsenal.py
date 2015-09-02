@@ -227,7 +227,30 @@ class TestArsenalStrategy(test_base.TestCase):
 
     def test_arsenal_caching_when_new_nodes_are_added(self):
         """Arsenal re-caches nodes when new nodes are added."""
-        pass
+        # start mimic
+        self.start_mimic_service()
+        before = self.get_unprovisioned_ironic_nodes()
+
+        # start arsenal and verify cached nodes
+        self.start_arsenal_service(
+            service_status="Got 0 cache directives from the strategy")
+        after = self.get_unprovisioned_ironic_nodes()
+        self.assertEqual(len(before), len(after))
+        cached_nodes = self.get_cached_ironic_nodes()
+        expected_cached_nodes = self.calculate_percentage_to_be_cached(
+            len(after), 0.5)
+        self.assertEqual(len(cached_nodes), expected_cached_nodes)
+
+        # add 8 new nodes of the onmetal-io1 flavor
+        self.add_new_nodes_to_mimic(8)
+        after_adding_new_nodes = self.get_unprovisioned_ironic_nodes()
+        self.assertEqual(len(after) + 8, len(after_adding_new_nodes))
+
+        # verify cached nodes count upon re-cache
+        newly_cached = self.calculate_percentage_to_be_cached(
+            8, 0.5, by_flavor=False)
+        expected_re_cached_nodes = newly_cached + expected_cached_nodes
+        self.wait_for_cached_ironic_nodes(expected_re_cached_nodes)
 
     def test_arsenal_caching_when_cached_nodes_are_deleted(self):
         """Arsenal re-caches nodes when cached nodes are deleted."""
