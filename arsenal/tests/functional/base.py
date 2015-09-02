@@ -283,3 +283,20 @@ class TestCase(base.BaseTestCase):
         for _ in range(num):
             resp = requests.post(self.mimic_ironic_url, data=request_json)
             self.assertEqual(resp.status_code, 201)
+
+    def delete_node_on_mimic(self, node_id):
+        """Delete the specified node_id from mimic."""
+        try:
+            resp = requests.delete(self.mimic_ironic_url + '/' + node_id)
+            self.assertEqual(resp.status_code, 204)
+        except Exception:
+            self.fail("Delete node failed with {0}.".format(resp.status_code))
+
+    def delete_cached_nodes_on_mimic(self, num=1):
+        """Deletes the `num` number of cached nodes in mimic."""
+        cached_nodes = self.get_cached_ironic_nodes()
+        if not (num == len(cached_nodes)):
+            self.fail("Cant delete more nodes than that exist!")
+        cached_node_ids = [each['uuid'] for each in cached_nodes]
+        for node_id in cached_node_ids[:int(num)]:
+            self.delete_node_on_mimic(node_id)
