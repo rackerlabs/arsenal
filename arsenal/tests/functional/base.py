@@ -208,6 +208,13 @@ class TestCase(base.BaseTestCase):
         return [node for node in all_nodes
                 if (node['driver_info'].get('cache_image_id'))]
 
+    def get_uncached_ironic_nodes(self):
+        """Get the uncached nodes from the list of nodes in ironic.
+        """
+        all_nodes = self.get_all_ironic_nodes()
+        return [node for node in all_nodes
+                if not (node['driver_info'].get('cache_image_id'))]
+
     def get_cached_ironic_nodes_by_flavor(self):
         """Get the cached nodes from the list of nodes in ironic.
         If `filter_by_flavor` is `True` return a map of each flavor to
@@ -292,11 +299,14 @@ class TestCase(base.BaseTestCase):
         except Exception:
             self.fail("Delete node failed with {0}.".format(resp.status_code))
 
-    def delete_cached_nodes_on_mimic(self, num=1):
-        """Deletes the `num` number of cached nodes in mimic."""
-        cached_nodes = self.get_cached_ironic_nodes()
-        if not (num == len(cached_nodes)):
+    def delete_cached_nodes_on_mimic(self, num=1, cached=True):
+        """Deletes the `num` number of cached or uncached nodes in mimic."""
+        if cached:
+            node_list = self.get_cached_ironic_nodes()
+        else:
+            node_list = self.get_uncached_ironic_nodes()
+        if not (num <= len(node_list)):
             self.fail("Cant delete more nodes than that exist!")
-        cached_node_ids = [each['uuid'] for each in cached_nodes]
-        for node_id in cached_node_ids[:int(num)]:
+        node_ids_list = [each['uuid'] for each in node_list]
+        for node_id in node_ids_list[:int(num)]:
             self.delete_node_on_mimic(node_id)
