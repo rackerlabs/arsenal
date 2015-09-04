@@ -14,15 +14,15 @@
 #    under the License.
 
 import ConfigParser
+import json
 import math
 import os
-import subprocess
-
-import requests
-
 import random
+import subprocess
+import time
 
 from oslotest import base
+import requests
 
 
 class TestCase(base.BaseTestCase):
@@ -38,7 +38,7 @@ class TestCase(base.BaseTestCase):
         self.flavors = 3
         self.port = str(random.randint(2000, 9000))
         self.mimic_endpoint = "http://localhost"
-        self.mimic_ironic_url = "{0}:{1}/ironic/v1/nodes/detail".format(
+        self.mimic_ironic_url = "{0}:{1}/ironic/v1/nodes".format(
             self.mimic_endpoint,
             self.port)
         self.mimic_glance_url = "{0}:{1}/glance/v2/images".format(
@@ -193,7 +193,7 @@ class TestCase(base.BaseTestCase):
     def get_all_ironic_nodes(self):
         """Get a list of ironic nodes with details.
         """
-        nodes_list_response = requests.get(self.mimic_ironic_url)
+        nodes_list_response = requests.get(self.mimic_ironic_url + '/detail')
         self.assertEqual(nodes_list_response.status_code, 200)
         ironic_nodes_list = nodes_list_response.json()['nodes']
         return ironic_nodes_list
@@ -219,6 +219,13 @@ class TestCase(base.BaseTestCase):
         return [node for node in all_nodes
                 if (node['driver_info'].get('cache_image_id'))]
 
+    def get_uncached_ironic_nodes(self):
+        """Get the uncached nodes from the list of nodes in ironic.
+        """
+        all_nodes = self.get_all_ironic_nodes()
+        return [node for node in all_nodes
+                if not (node['driver_info'].get('cache_image_id'))]
+
     def get_cached_ironic_nodes_by_flavor(self):
         """Get the cached nodes from the list of nodes in ironic.
         If `filter_by_flavor` is `True` return a map of each flavor to
@@ -235,12 +242,27 @@ class TestCase(base.BaseTestCase):
                 cache_node_by_flavor[node['extra']['flavor']].append(node)
         return cache_node_by_flavor
 
-    def calculate_percentage_to_be_cached(self, total_nodes, percentage):
+    def wait_for_cached_ironic_nodes(self, count, interval_time=1, timeout=5):
+        """Wait for the number of cached ironic nodes."""
+        end_time = time.time() + timeout
+        while time.time() < end_time:
+            cached_nodes = self.get_cached_ironic_nodes()
+            if len(cached_nodes) == count:
+                break
+            time.sleep(interval_time)
+        else:
+            self.fail("Expected cached nodes count {0}, but got {1}".format(
+                count, len(cached_nodes)))
+
+    def calculate_percentage_to_be_cached(self, total_nodes, percentage,
+                                          by_flavor=True):
         """Calulates the nodes to be cached given the percentage and the
         total_nodes.
         """
-        return (math.floor((total_nodes / self.flavors) *
-                           percentage) * self.flavors)
+        if by_flavor:
+            return (math.floor((total_nodes / self.flavors) *
+                               percentage) * self.flavors)
+        return (math.floor(total_nodes * percentage))
 
     def get_image_id_to_name_map_from_mimic(self):
         """Get a list of images and map the image id to name.
@@ -270,3 +292,32 @@ class TestCase(base.BaseTestCase):
                 nodes_per_image_count[key] = len(value)
             return nodes_per_image_count
         return nodes_per_image
+
+    def add_new_nodes_to_mimic(self, num=1, memory_mb=131072):
+        """Add the `num` number of nodes in mimic.
+        By default adds onmetal-io1 flavors.
+        """
+        request_json = json.dumps({'properties': {'memory_mb': memory_mb}})
+        for _ in range(num):
+            resp = requests.post(self.mimic_ironic_url, data=request_json)
+            self.assertEqual(resp.status_code, 201)
+
+    def delete_node_on_mimic(self, node_id):
+        """Delete the specified node_id from mimic."""
+        try:
+            resp = requests.delete(self.mimic_ironic_url + '/' + node_id)
+            self.assertEqual(resp.status_code, 204)
+        except Exception:
+            self.fail("Delete node failed with {0}.".format(resp.status_code))
+
+    def delete_cached_nodes_on_mimic(self, num=1, cached=True):
+        """Deletes the `num` number of cached or uncached nodes in mimic."""
+        if cached:
+            node_list = self.get_cached_ironic_nodes()
+        else:
+            node_list = self.get_uncached_ironic_nodes()
+        if not (num <= len(node_list)):
+            self.fail("Cant delete more nodes than that exist!")
+        node_ids_list = [each['uuid'] for each in node_list]
+        for node_id in node_ids_list[:int(num)]:
+            self.delete_node_on_mimic(node_id)
