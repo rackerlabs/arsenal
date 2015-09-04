@@ -286,7 +286,7 @@ class TestCase(base.BaseTestCase):
         """Add the `num` number of nodes in mimic.
         By default adds onmetal-io1 flavors.
         """
-        request_json = json.dumps({'properties': {'memory_mb': 131072}})
+        request_json = json.dumps({'properties': {'memory_mb': memory_mb}})
         for _ in range(num):
             resp = requests.post(self.mimic_ironic_url, data=request_json)
             self.assertEqual(resp.status_code, 201)
