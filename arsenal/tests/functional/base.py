@@ -14,6 +14,7 @@
 #    under the License.
 
 import ConfigParser
+import json
 import math
 import os
 import subprocess
@@ -27,6 +28,11 @@ from oslotest import base
 
 class TestCase(base.BaseTestCase):
     """Base test class for all functional tests."""
+
+    def log_to_file(self, msg):
+        f = open('arsenal.log', 'ab')
+        f.write(str(msg) + '\n')
+        f.close()
 
     def setUp(self):
         """Set the endpoints for ironic and glance.
@@ -248,6 +254,8 @@ class TestCase(base.BaseTestCase):
         """
         image_list_response = requests.get(self.mimic_glance_url)
         self.assertEqual(image_list_response.status_code, 200)
+        self.log_to_file({each["id"]: each["name"]
+                          for each in image_list_response.json()['images']})
         return {each["id"]: each["name"]
                 for each in image_list_response.json()['images']}
 
@@ -264,9 +272,69 @@ class TestCase(base.BaseTestCase):
                 nodes_per_image[image_name].append(node['uuid'])
             else:
                 nodes_per_image[image_name] = [node['uuid']]
+        self.log_to_file("********** {}".format(nodes_per_image))
         if count:
             nodes_per_image_count = {}
             for key, value in nodes_per_image.iteritems():
                 nodes_per_image_count[key] = len(value)
             return nodes_per_image_count
         return nodes_per_image
+
+    def add_new_nodes_to_mimic(self, num=1, memory_mb=131072):
+        """Add the `num` number of nodes in mimic.
+        By default adds onmetal-io1 flavors.
+        """
+        request_json = json.dumps({'properties': {'memory_mb': 131072}})
+        for _ in range(num):
+            resp = requests.post(self.mimic_ironic_url, data=request_json)
+            self.assertEqual(resp.status_code, 201)
+
+    def delete_node_on_mimic(self, node_id):
+        """Delete the specified node_id from mimic."""
+        try:
+            resp = requests.delete(self.mimic_ironic_url + '/' + node_id)
+            self.assertEqual(resp.status_code, 204)
+        except Exception:
+            self.fail("Delete node failed with {0}.".format(resp.status_code))
+
+    def delete_cached_nodes_on_mimic(self, num=1, cached=True):
+        """Deletes the `num` number of cached or uncached nodes in mimic."""
+        if cached:
+            node_list = self.get_cached_ironic_nodes()
+        else:
+            node_list = self.get_uncached_ironic_nodes()
+        if not (num <= len(node_list)):
+            self.fail("Cant delete more nodes than that exist!")
+        node_ids_list = [each['uuid'] for each in node_list]
+        for node_id in node_ids_list[:int(num)]:
+            self.delete_node_on_mimic(node_id)
+
+    def delete_image_from_mimic(self, num=1):
+        """Delete `num` onmetal images from Mimic."""
+        onmetal_images = self.get_onmetal_images_ids_from_mimic()
+        deleted_image = onmetal_images[:num]
+        for each in deleted_image:
+            resp = requests.delete(self.mimic_glance_url + '/' + each)
+            self.assertEqual(resp.status_code, 204)
+        return deleted_image
+
+    def get_onmetal_images_names_from_mimic(self):
+        """Returns list of onmetal images names in mimic."""
+        image_list_response = requests.get(self.mimic_glance_url)
+        self.assertEqual(image_list_response.status_code, 200)
+        return [image['name'] for image in image_list_response.json()['images']
+                if image['name'].startswith('OnMetal')]
+
+    def get_onmetal_images_ids_from_mimic(self):
+        """Returns list of onmetal images ids in mimic."""
+        image_list_response = requests.get(self.mimic_glance_url)
+        self.assertEqual(image_list_response.status_code, 200)
+        return [image['id'] for image in image_list_response.json()['images']
+                if image['name'].startswith('OnMetal')]
+
+    def add_new_image_to_mimic(self, num=1):
+        """Adds a new onmetal image to Mimic."""
+        new_image = json.dumps({"name": "OnMetal - Debian Testing (Stretch)",
+                                "distro": "linux"})
+        resp = requests.post(self.mimic_glance_url, data=new_image)
+        self.assertEqual(resp.status_code, 201)
