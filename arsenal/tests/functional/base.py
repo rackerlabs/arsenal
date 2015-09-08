@@ -28,11 +28,6 @@ import requests
 class TestCase(base.BaseTestCase):
     """Base test class for all functional tests."""
 
-    def log_to_file(self, msg):
-        f = open('arsenal.log', 'ab')
-        f.write(str(msg) + '\n')
-        f.close()
-
     def setUp(self):
         """Set the endpoints for ironic and glance.
         Create a config file for arsenal with default values
@@ -275,8 +270,6 @@ class TestCase(base.BaseTestCase):
         """
         image_list_response = requests.get(self.mimic_glance_url)
         self.assertEqual(image_list_response.status_code, 200)
-        self.log_to_file({each["id"]: each["name"]
-                          for each in image_list_response.json()['images']})
         return {each["id"]: each["name"]
                 for each in image_list_response.json()['images']}
 
@@ -293,7 +286,6 @@ class TestCase(base.BaseTestCase):
                 nodes_per_image[image_name].append(node['uuid'])
             else:
                 nodes_per_image[image_name] = [node['uuid']]
-        self.log_to_file("********** {}".format(nodes_per_image))
         if count:
             nodes_per_image_count = {}
             for key, value in nodes_per_image.iteritems():
@@ -330,14 +322,11 @@ class TestCase(base.BaseTestCase):
         for node_id in node_ids_list[:int(num)]:
             self.delete_node_on_mimic(node_id)
 
-    def delete_image_from_mimic(self, num=1):
-        """Delete `num` onmetal images from Mimic."""
-        onmetal_images = self.get_onmetal_images_ids_from_mimic()
-        deleted_image = onmetal_images[:num]
-        for each in deleted_image:
+    def delete_image_from_mimic(self, images):
+        """Delete given onmetal images from Mimic."""
+        for each in images:
             resp = requests.delete(self.mimic_glance_url + '/' + each)
             self.assertEqual(resp.status_code, 204)
-        return deleted_image
 
     def get_onmetal_images_names_from_mimic(self):
         """Returns list of onmetal images names in mimic."""
@@ -353,9 +342,8 @@ class TestCase(base.BaseTestCase):
         return [image['id'] for image in image_list_response.json()['images']
                 if image['name'].startswith('OnMetal')]
 
-    def add_new_image_to_mimic(self, num=1):
-        """Adds a new onmetal image to Mimic."""
-        new_image = json.dumps({"name": "OnMetal - Debian Testing (Stretch)",
-                                "distro": "linux"})
-        resp = requests.post(self.mimic_glance_url, data=new_image)
-        self.assertEqual(resp.status_code, 201)
+    def add_new_image_to_mimic(self, images):
+        """Adds new onmetal images to Mimic."""
+        for image in images:
+            resp = requests.post(self.mimic_glance_url, data=json.dumps(image))
+            self.assertEqual(resp.status_code, 201)

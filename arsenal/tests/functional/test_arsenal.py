@@ -237,41 +237,33 @@ class TestArsenalStrategy(test_base.TestCase):
         # start arsenal and verify cached nodes are of all images
         self.start_arsenal_service(
             service_status="Got 0 cache directives from the strategy")
-        after = self.get_unprovisioned_ironic_nodes()
-        cached_nodes_before = self.get_cached_ironic_nodes()
-        self.log_to_file(len(cached_nodes_before))
-        nodes_per_image_before = self.list_ironic_nodes_by_image(
-            cached_nodes_before,
-            count=True)
-        self.log_to_file(nodes_per_image_before)
-        image_list_before = self.get_onmetal_images_names_from_mimic()
-        self.log_to_file(image_list_before)
+        unprovisioned_nodes = self.get_unprovisioned_ironic_nodes()
+        images_before = self.get_onmetal_images_ids_from_mimic()
 
         # delete 2 of the cached images from mimic
-        deleted_images = self.delete_image_from_mimic(2)
-        time.sleep(10)
+        images_to_delete = images_before[:2]
+        self.delete_image_from_mimic(images_to_delete)
+        time.sleep(4)  # wait for recache
 
         # verify the images were deleted successfully
-        image_list_after = self.get_onmetal_images_names_from_mimic()
-        for each in deleted_images:
+        image_list_after = self.get_onmetal_images_ids_from_mimic()
+        for each in images_to_delete:
             self.assertTrue(each not in image_list_after)
-        self.assertEqual(len(image_list_before), len(image_list_after) + 2)
-        self.log_to_file(image_list_after)
+        self.assertEqual(len(images_before), len(image_list_after) + 2)
 
         # verify the cached images are only the images available after
         # the delete
         cached_nodes_after = self.get_cached_ironic_nodes()
-        self.log_to_file(len(cached_nodes_after))
         nodes_per_image_after = self.list_ironic_nodes_by_image(
             cached_nodes_after,
             count=True)
-        self.log_to_file(nodes_per_image_after)
-        self.assertEqual(sorted(image_list_after),
+        images_after_del = self.get_onmetal_images_names_from_mimic()
+        self.assertEqual(sorted(images_after_del),
                          sorted(nodes_per_image_after.keys()))
 
         # verify the percentage_to_cache is still met
         expected_cached_nodes = self.calculate_percentage_to_be_cached(
-            len(after), 0.5)
+            len(unprovisioned_nodes), 0.5)
         self.wait_for_cached_ironic_nodes(expected_cached_nodes)
 
     def test_arsenal_ejects_images_when_nodes_already_provisioned(self):
@@ -293,31 +285,29 @@ class TestArsenalStrategy(test_base.TestCase):
             service_status="Got 0 cache directives from the strategy")
         after = self.get_unprovisioned_ironic_nodes()
         cached_nodes_before = self.get_cached_ironic_nodes()
-        self.log_to_file(len(cached_nodes_before))
         nodes_per_image_before = self.list_ironic_nodes_by_image(
             cached_nodes_before,
             count=True)
-        self.log_to_file(nodes_per_image_before)
         image_list_before = self.get_onmetal_images_names_from_mimic()
-        self.log_to_file(image_list_before)
+        self.assertEqual(sorted(image_list_before),
+                         sorted(nodes_per_image_before.keys()))
 
         # Add a new onmetal image to Mimic
-        self.add_new_image_to_mimic()
+        new_image = [{"name": "OnMetal - Debian Testing (Stretch)",
+                      "distro": "linux"}]
+        self.add_new_image_to_mimic(new_image)
 
         # verify the new image was added successfully
         image_list_after = self.get_onmetal_images_names_from_mimic()
         self.assertEqual(len(image_list_before) + 1, len(image_list_after))
-        self.log_to_file(image_list_after)
 
         time.sleep(5)  # wait for arsenal to recache.
 
         # verify the cached nodes include the new image.
         cached_nodes_after = self.get_cached_ironic_nodes()
-        self.log_to_file(len(cached_nodes_after))
         nodes_per_image_after = self.list_ironic_nodes_by_image(
             cached_nodes_after,
             count=True)
-        self.log_to_file(nodes_per_image_after)
         self.assertEqual(sorted(image_list_after),
                          sorted(nodes_per_image_after.keys()))
 
@@ -329,7 +319,43 @@ class TestArsenalStrategy(test_base.TestCase):
     def test_arsenal_cache_when_images_are_replaced(self):
         """Arsenal caches the images that have been replaced.
         """
-        pass
+        # start mimic
+        self.start_mimic_service()
+
+        # start arsenal and verify cached nodes are of all images
+        self.start_arsenal_service(
+            service_status="Got 0 cache directives from the strategy")
+        unprovisioned_nodes = self.get_unprovisioned_ironic_nodes()
+        cached_nodes_before = self.get_cached_ironic_nodes()
+        nodes_per_image_before = self.list_ironic_nodes_by_image(
+            cached_nodes_before,
+            count=True)
+        image_list_before = self.get_onmetal_images_ids_from_mimic()
+        self.assertEqual(sorted(self.get_onmetal_images_names_from_mimic()),
+                         sorted(nodes_per_image_before.keys()))
+
+        # Replace an existing image with Debian Testing (Stretch)
+        new_image = [{"name": "OnMetal - Debian Testing (Stretch)",
+                      "distro": "linux"}]
+        self.add_new_image_to_mimic(new_image)
+        images_to_delete = image_list_before[:1]
+        self.delete_image_from_mimic(images_to_delete)
+        time.sleep(4)  # wait for recache
+
+        # verify the cached images are only the images available after
+        # the image replacement
+        cached_nodes_after = self.get_cached_ironic_nodes()
+        nodes_per_image_after = self.list_ironic_nodes_by_image(
+            cached_nodes_after,
+            count=True)
+        images_after_del = self.get_onmetal_images_names_from_mimic()
+        self.assertEqual(sorted(images_after_del),
+                         sorted(nodes_per_image_after.keys()))
+
+        # verify the percentage_to_cache is still met
+        expected_cached_nodes = self.calculate_percentage_to_be_cached(
+            len(unprovisioned_nodes), 0.5)
+        self.wait_for_cached_ironic_nodes(expected_cached_nodes)
 
     def test_arsenal_caching_when_new_nodes_are_added(self):
         """Arsenal re-caches nodes when new nodes are added."""
