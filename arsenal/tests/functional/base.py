@@ -212,6 +212,22 @@ class TestCase(base.BaseTestCase):
         return [node for node in all_nodes
                 if not node.get('instance_uuid')]
 
+    def get_cached_unprovisioned_ironic_nodes(self):
+        """Get the cached unprovioned nodes from the list of nodes in ironic.
+        """
+        all_nodes = self.get_all_ironic_nodes()
+        return [node for node in all_nodes
+                if ((node['driver_info'].get('cache_image_id')) and
+                    (not node.get('instance_uuid')))]
+
+    def get_uncached_unprovisioned_ironic_nodes(self):
+        """Get the cached unprovioned nodes from the list of nodes in ironic.
+        """
+        all_nodes = self.get_all_ironic_nodes()
+        return [node for node in all_nodes
+                if ((not node['driver_info'].get('cache_image_id')) and
+                    (not node.get('instance_uuid')))]
+
     def get_cached_ironic_nodes(self):
         """Get the cached nodes from the list of nodes in ironic.
         """
@@ -254,6 +270,24 @@ class TestCase(base.BaseTestCase):
             self.fail("Expected cached nodes count {0}, but got {1}".format(
                 count, len(cached_nodes)))
 
+    def wait_for_successful_recache(self, interval_time=1, timeout=5):
+        """Waits for current images to be re-cached when the images
+        are added or deleted"""
+        end_time = time.time() + timeout
+        while time.time() < end_time:
+            cached_nodes = self.get_cached_ironic_nodes()
+            nodes_per_image = self.list_ironic_nodes_by_image(
+                cached_nodes,
+                count=True)
+            images = self.get_onmetal_images_names_from_mimic()
+            if sorted(images) == sorted(nodes_per_image.keys()):
+                break
+            time.sleep(interval_time)
+        else:
+            self.fail("Expected {0} to be cached, got {1}".format(
+                sorted(images),
+                sorted(nodes_per_image.keys())))
+
     def calculate_percentage_to_be_cached(self, total_nodes, percentage,
                                           by_flavor=True):
         """Calulates the nodes to be cached given the percentage and the
@@ -289,7 +323,8 @@ class TestCase(base.BaseTestCase):
         if count:
             nodes_per_image_count = {}
             for key, value in nodes_per_image.iteritems():
-                nodes_per_image_count[key] = len(value)
+                if key:
+                    nodes_per_image_count[key] = len(value)
             return nodes_per_image_count
         return nodes_per_image
 
@@ -347,3 +382,16 @@ class TestCase(base.BaseTestCase):
         for image in images:
             resp = requests.post(self.mimic_glance_url, data=json.dumps(image))
             self.assertEqual(resp.status_code, 201)
+
+    def set_provision_state(self, node_list, provision_state):
+        """Set the provision state to all the nodes in `node_list`"""
+        for node in node_list:
+            url = self.mimic_ironic_url + '/' + node + '/states/provision'
+            resp = requests.put(url,
+                                data=json.dumps({"target": provision_state}))
+            self.assertEqual(resp.status_code, 202)
+
+    def get_provisioned_nodes_from_mimic(self):
+        """
+        Returns a list of provsioned nodes in mimic.
+        """
