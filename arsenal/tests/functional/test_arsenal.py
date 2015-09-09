@@ -12,7 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import time
 import unittest
 
 from arsenal.tests.functional import base as test_base
@@ -133,7 +132,7 @@ class TestArsenalStrategy(test_base.TestCase):
         """Given percentage 100%, arsenal caches all the nodes
         available.
         """
-        # create arsenal config with percentage_to_cache=0.1
+        # create arsenal config with percentage_to_cache=1
         config_file = self.generate_config_file_name()
         config_values = self.set_config_values(percentage_to_cache=1)
         self.create_arsenal_config_file(config_values, file_name=config_file)
@@ -149,7 +148,7 @@ class TestArsenalStrategy(test_base.TestCase):
         after = self.get_unprovisioned_ironic_nodes()
         self.assertEqual(len(before), len(after))
 
-        # get list of cached nodes and verify that its 25% of available nodes
+        # get list of cached nodes and verify that its 100% of available nodes
         cached_nodes = self.get_cached_ironic_nodes()
         expected_cached_nodes = self.calculate_percentage_to_be_cached(
             len(after), 1)

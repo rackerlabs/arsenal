@@ -272,7 +272,8 @@ class TestCase(base.BaseTestCase):
 
     def wait_for_successful_recache(self, interval_time=1, timeout=5):
         """Waits for current images to be re-cached when the images
-        are added or deleted"""
+        are added or deleted.
+        """
         end_time = time.time() + timeout
         while time.time() < end_time:
             cached_nodes = self.get_cached_ironic_nodes()
@@ -384,14 +385,9 @@ class TestCase(base.BaseTestCase):
             self.assertEqual(resp.status_code, 201)
 
     def set_provision_state(self, node_list, provision_state):
-        """Set the provision state to all the nodes in `node_list`"""
+        """Set the provision state to all the nodes in `node_list`."""
         for node in node_list:
             url = self.mimic_ironic_url + '/' + node + '/states/provision'
             resp = requests.put(url,
                                 data=json.dumps({"target": provision_state}))
             self.assertEqual(resp.status_code, 202)
-
-    def get_provisioned_nodes_from_mimic(self):
-        """
-        Returns a list of provsioned nodes in mimic.
-        """
