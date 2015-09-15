@@ -156,11 +156,13 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
     @periodic_task.periodic_task(run_immediately=True,
                                  spacing=CONF.director.poll_spacing)
     def poll_for_flavor_data(self, context):
+        LOG.debug("Scouting for flavor data...")
         self.flavor_data = self.scout.retrieve_flavor_data()
 
     @periodic_task.periodic_task(run_immediately=True,
                                  spacing=CONF.director.poll_spacing)
     def poll_for_image_data(self, context):
+        LOG.debug("Scouting for image data...")
         self.image_data = self.scout.retrieve_image_data()
 
     def rate_limit_cache_directives(self, directives):

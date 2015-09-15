@@ -154,7 +154,6 @@ class TestArsenalStrategy(test_base.TestCase):
             len(after), 1)
         self.assertEqual(len(cached_nodes), expected_cached_nodes)
 
-    @unittest.skip("Issue: https://github.com/rackerlabs/arsenal/issues/61")
     def test_arsenal_caches_only_weighted_images(self):
         """When the image_weight for an image is set to 0,
         arsenal will not cache that image.
@@ -184,7 +183,6 @@ class TestArsenalStrategy(test_base.TestCase):
                                                           count=True)
         self.assertFalse(nodes_per_image.get('OnMetal - CentOS 6'))
 
-    @unittest.skip("Issue: https://github.com/rackerlabs/arsenal/issues/61")
     def test_arsenal_cache_when_default_image_weight_0(self):
         """When the default_image_weight is set to 0, arsenal will only cache
         the images with image_weight set to be greater than 0.
@@ -216,16 +214,22 @@ class TestArsenalStrategy(test_base.TestCase):
         self.assertEqual(nodes_per_image.get('OnMetal - CentOS 6'),
                          len(before))
 
-    @unittest.skip("Issue: https://github.com/rackerlabs/arsenal/issues/62")
     def test_arsenal_caches_per_assigned_images_weights(self):
         """Arsenal caches images with maximum weights the most and vice versa
         """
+        # create arsenal config with image_weights
+        config_file = self.generate_config_file_name()
+        config_values = self.set_config_values(
+            image_weights=test_base.DEFAULT_IMAGE_WEIGHTS)
+        self.create_arsenal_config_file(config_values, file_name=config_file)
+
         # start mimic
         self.start_mimic_service()
         before = self.get_unprovisioned_ironic_nodes()
 
         # start arsenal
         self.start_arsenal_service(
+            config_file=config_file,
             service_status="Got 0 cache directives from the strategy")
 
         # get list of cached nodes and verify that images with the most

@@ -179,20 +179,23 @@ part of Arsenal.
 Astute readers will notice the the syntax of this option matches that of 
 **scout** from the ``[director]`` section.
 
-.. _image_weights:
+.. _image_weights_filename:
 
-image_weights
-+++++++++++++
+image_weights_filename
+++++++++++++++++++++++
 
-**image_weights** is a dictionary option where the keys are names of images as
-strings, and the values are the associated weights as non-negative integers. 
-This dictionary is referred to by Arsenal whenever a built-in image selection 
-function, such as 
+**image_weights_filename** is a string option specifying the location of a 
+text file containing a single JSON object where the object's keys are names 
+of images as strings, and the values are the associated weights as 
+non-negative integers. 
+This JSON object is loaded as a Python dictionary  and then referred to by 
+Arsenal whenever a built-in image selection function, such as 
 ``arsenal.strategy.choose_weighted_images_force_distribution``, has to make a
 decision on which image(s) to choose to cache to available nodes.
 
 .. important::
-    The keys of **image_weights** must exactly match the names of images as
+    The keys of the JSON object in the file named by
+    **image_weights_filename** must exactly match the names of images as
     reported by the configured Scout object. This typically means image names
     reported by Glance. Otherwise the configured weights will not be properly
     applied.
@@ -201,14 +204,14 @@ Images with higher weights will tend to be picked more frequently, and
 similarly those with lower weights will tend to be picked less frequently.
 
 .. note::
-    If **image_weights** is not defined, then every image will receive the
-    weight specified by the **default_image_weight** option. Meaning every
-    image will have an equal chance of being cached.
+    If **image_weights_filename** is not defined, then every image will 
+    receive the weight specified by the **default_image_weight** option. 
+    Meaning every image will have an equal chance of being cached.
 
 
-Example weight dictionary::
+Example JSON object containing image weights::
 
-    image_weights = {
+    {
         'Ubuntu': 10,
         'CoreOS': 5,
         'Windows': 2,
@@ -221,13 +224,16 @@ In the above example the ``Ubuntu`` image will be picked twice as often as the
 ``Ubuntu`` image cached, 5 nodes to have the ``CoreOS`` image cached, and so
 on.
 
+An `example image weight json file` is available in Arsenal's source tree.
+
 .. _default_image_weight:
 
 default_image_weight
 ++++++++++++++++++++
 
 **default_image_weight** is an integer value which is used to weight an image
-with no corresponding entry in the **image_weights** option. Defaults to 1.
+with no corresponding entry in the JSON object loaded by the 
+**image_weights_filename** option. Defaults to 1.
 
 .. _[simple_proportional_strategy] Section:
 
@@ -329,3 +335,5 @@ full example configuration to use with ``arsenal-director``.
 .. _nova_client_wrapper.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/external/nova_client_wrapper.py
 .. _client_wrapper.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/external/client_wrapper.py 
 .. _scheduler.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/director/scheduler.py
+.. _example image weight json file: https://github.com/rackerlabs/arsenal/blob/master/etc/arsenal/image_weights.json.example
+

@@ -22,8 +22,11 @@ Exposes tests which exercise functionality provided by arsenal.strategy.base.
 from __future__ import division
 import collections
 import copy
+import json
 import math
+import os.path
 import random
+import tempfile
 
 import mock
 from oslo_config import cfg
@@ -233,7 +236,8 @@ class TestImageWeights(test_base.TestCase):
     def setUp(self):
         super(TestImageWeights, self).setUp()
         self._setup_weights()
-        CONF.set_override('image_weights', self.WEIGHTED_IMAGES, 'strategy')
+        sb._load_image_weights_file.image_weights = self.WEIGHTED_IMAGES
+        sb._load_image_weights_file.loaded = True
 
     def _setup_weights(self):
         self.NO_WEIGHTS = {}
@@ -247,6 +251,8 @@ class TestImageWeights(test_base.TestCase):
             'TempleOS': 8,
             'Minix': 4
         }
+        self.IMAGE_WEIGHT_SUM = sum(
+            [w for i, w in self.WEIGHTED_IMAGES.iteritems()])
         self.EJECTION_IMAGES = [
             sb.ImageInput('Ubuntu', "aaaa", "abcd"),
             sb.ImageInput('CoreOS', "bbbb", "efgh"),
@@ -259,6 +265,85 @@ class TestImageWeights(test_base.TestCase):
         ]
         self.EJECTION_IMAGES_BY_NAME = {image.name: image
                                         for image in self.EJECTION_IMAGES}
+
+    def test_load_image_weights(self):
+        sb._load_image_weights_file.image_weights = {}
+        sb._load_image_weights_file.loaded = False
+
+        temp_image_weights_file = tempfile.NamedTemporaryFile()
+        temp_image_weights_file.write(json.dumps(self.WEIGHTED_IMAGES))
+        temp_image_weights_file.flush()
+        CONF.set_override('image_weights_filename',
+                          temp_image_weights_file.name, 'strategy')
+
+        sb._load_image_weights_file()
+
+        self.assertEqual(sb._load_image_weights_file.image_weights,
+                         self.WEIGHTED_IMAGES)
+        self.assertTrue(sb._load_image_weights_file.loaded)
+
+    @mock.patch.object(sb, '_load_image_weights_file')
+    def test_get_configured_strategy_loads_image_weights(self, load_file_mock):
+        CONF.set_override('percentage_to_cache', 1,
+                          'simple_proportional_strategy')
+        sb.get_configured_strategy()
+        self.assertTrue(load_file_mock.called)
+
+    @mock.patch.object(sb.LOG, 'exception')
+    def test_exception_fails_image_weight_loading(self, exception_log_mock):
+        sb._load_image_weights_file.loaded = False
+        sb._load_image_weights_file.image_weights = {}
+        CONF.set_override(
+            'image_weights_filename',
+            os.path.join('from_fox_two_phantoms_were_born',
+                         'those_who_dont_exist'),
+            'strategy')
+
+        sb._load_image_weights_file()
+
+        self.assertTrue(
+            exception_log_mock.called,
+            "The exception log method was not called, even though the file "
+            "doesn't exist.")
+        self.assertFalse(
+            sb._load_image_weights_file.loaded,
+            "_load_image_weights_file.loaded is True, even though it "
+            "did not load a file.")
+        self.assertEqual(
+            {},
+            sb._load_image_weights_file.image_weights,
+            "_load_image_weights_file.image_weights is not equal to {} "
+            "even though no file was loaded.")
+
+    def test_reload_weight_file_when_true(self):
+        temp_image_weights_file = tempfile.NamedTemporaryFile()
+        test_weights = {'the_final_countdown': 5,
+                        'the_man_who_sold_the_world': 10}
+        temp_image_weights_file.write(json.dumps(test_weights))
+        temp_image_weights_file.flush()
+        CONF.set_override('image_weights_filename',
+                          temp_image_weights_file.name, 'strategy')
+
+        sb._load_image_weights_file(reload_file=True)
+
+        self.assertEqual(sb._load_image_weights_file.image_weights,
+                         test_weights)
+        self.assertTrue(sb._load_image_weights_file.loaded)
+
+    def test_reload_weight_file_when_false(self):
+        temp_image_weights_file = tempfile.NamedTemporaryFile()
+        test_weights = {'the_final_countdown': 5,
+                        'the_man_who_sold_the_world': 10}
+        temp_image_weights_file.write(json.dumps(test_weights))
+        temp_image_weights_file.flush()
+        CONF.set_override('image_weights_filename',
+                          temp_image_weights_file.name, 'strategy')
+
+        sb._load_image_weights_file(reload_file=False)
+
+        self.assertEqual(sb._load_image_weights_file.image_weights,
+                         self.WEIGHTED_IMAGES)
+        self.assertTrue(sb._load_image_weights_file.loaded)
 
     def test_get_image_weights(self):
         weights_by_name = sb.get_image_weights(
@@ -311,6 +396,12 @@ class TestImageWeights(test_base.TestCase):
                 'images': TEST_IMAGES,
                 'nodes': [sb.NodeInput('c-%d' % (n), 'compute', False, False,
                                        'aaaa') for n in range(0, 1000)]
+            },
+            'all nodes available - num of nodes machine image weight sum': {
+                'num_images': self.IMAGE_WEIGHT_SUM,
+                'images': TEST_IMAGES,
+                'nodes': [sb.NodeInput('c-%d' % (n), 'compute', False, False,
+                          'aaaa') for n in range(0, self.IMAGE_WEIGHT_SUM)]
             },
         }
 
@@ -486,3 +577,33 @@ class TestImageWeights(test_base.TestCase):
             # our general expectation.
             self.assertEqual(expected_sorted_ejection_list,
                              sorted_ejection_list)
+
+    def test_images_with_zero_weight_not_cached(self):
+        image_weights = {
+            'Ubuntu': 5,
+            'CoreOS': 10,
+            'Windows': 0,
+        }
+
+        sb._load_image_weights_file.image_weights = image_weights
+
+        CONF.set_override('default_image_weight', 0, 'strategy')
+
+        test_scenario = {
+            'num_images': 30,
+            'images': TEST_IMAGES,
+            'nodes': (
+                [sb.NodeInput('c-%d' % n, 'compute', False, False, 'aaaa') for
+                    n in range(0, 30)])
+        }
+
+        picked_images = (
+            sb.choose_weighted_images_forced_distribution(**test_scenario))
+
+        # Make sure no images were picked with a zero weight.
+        expected_names = [name for name, weight in image_weights.iteritems()
+                          if weight > 0]
+        for image in picked_images:
+            self.assertIn(image.name, expected_names,
+                          "Found an unexpected image cached. Image had a "
+                          "zero weight. Image name %s" % (image.name))

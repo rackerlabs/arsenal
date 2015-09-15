@@ -113,7 +113,8 @@ The random selection is designed to level wear across nodes.
 Image selection is handled by ``choose_weighted_images_force_distribution``
 found in the ``arsenal.strategy.base`` module. This means 
 SimpleProportionalStrategy will pick images by weights pulled from the 
-``strategy.image_weights`` option. See the :ref:`image_weights` option section
+``strategy.image_weights_filename`` option. 
+See the :ref:`image_weights_filename` option section
 for more details on how image weighting works in Arsenal.
 
 See the :ref:`[simple_proportional_strategy] Section` for information on how to 
