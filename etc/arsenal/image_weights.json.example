@@ -1,0 +1,17 @@
+# NOTE - Comments are here (lines starting with the '#' character.) for the
+# sake of the reader, but must be removed before loading into Arsenal as
+# JSON does not support comments.
+
+# See Arsenal's documentation for more information on image weights. 
+# See also arsenal.strategy.base module's source.
+
+# The image weight file should consistent of a single JSON object.
+# The object's keys/attributes  must correspond exactly to the image names,
+# and the values are the weights as non-negative integers.
+{
+    'Ubuntu 14.04': 15,
+    'CoreOS (Alpha)': 10,
+    'CoreOS (Beta)': 23,
+    'Windows': 5,
+    'Minix': 5
+}

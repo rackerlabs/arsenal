@@ -20,6 +20,7 @@ from __future__ import division
 import abc
 import collections
 import copy
+import json
 import math
 
 from oslo_config import cfg
@@ -35,14 +36,14 @@ opts = [
                default=('simple_proportional_strategy.'
                         'SimpleProportionalStrategy'),
                help='The strategy module to load.'),
-    cfg.DictOpt('image_weights',
-                default={},
-                help='A dictionary where the keys are image names and the '
-                     'values are their assigned weights to use when picking '
-                     'images to cache to nodes. Image names should be strings '
-                     'and weights should be non-negative integers. '
-                     'Images with larger weights will be more likely to be '
-                     'cached than those with lower weights.'),
+    cfg.StrOpt('image_weights_filename',
+               help='The name of a file containing a single JSON object. '
+                    'The name of each object member is the name of an image '
+                    'and the member\'s value ist he corresponding weight as a '
+                    'non-negative integer. Arsenal will load the JSON object'
+                    'contained within the file and use it whenever '
+                    'appropriate to weight strategy decisions on picking '
+                    'images to cache.'),
     cfg.IntOpt('default_image_weight',
                default=1,
                help='The integral weight to use if a given image has '
@@ -58,6 +59,11 @@ CONF.register_opts(opts, strategy_group)
 
 
 def get_configured_strategy():
+    # Initialize image weights when the configured strategy is requested.
+    # This way we know the configuration is present and ready before trying
+    # to read in image weights based on the configured image weight filename.
+    init_image_weights()
+
     loader = util.LoadClass(CONF.strategy.module_class,
                             package_prefix='arsenal.strategy')
     return loader.loaded_class()
@@ -343,12 +349,53 @@ def build_attribute_dict(items, attr_name):
     return attr_dict
 
 
+def _load_image_weights_file(reload_file=False):
+    filename = CONF.strategy.image_weights_filename
+
+    if filename is None:
+        LOG.warning("Configuration option strategy.image_weights_filename is "
+                    "not specified, every image will receive the default "
+                    "image weight.")
+        return
+
+    if _load_image_weights_file.loaded and not reload_file:
+        LOG.warning("The image weight file has already been loaded. Refusing "
+                    "to reload unless the reload_file argument is True.")
+        return
+
+    try:
+        with open(filename, 'r') as infile:
+            _load_image_weights_file.image_weights = json.load(infile)
+            _load_image_weights_file.loaded = True
+        LOG.info("Loaded image weights from '%s'." % (filename))
+        LOG.info("Image weights as follows:")
+        for image_name, weight in (
+                _load_image_weights_file.image_weights.iteritems()):
+            LOG.info("%(image_name)s: %(weight)d" % {'image_name': image_name,
+                                                     'weight': weight})
+    except Exception as e:
+        LOG.exception("Caught an exception when trying to load "
+                      "'%(filename)s'. All weights will revert to the "
+                      "default image weight. Exception message: "
+                      "%(message)s" % {'filename': filename, 'message': e})
+        _load_image_weights_file.image_weights = {}
+        _load_image_weights_file.loaded = False
+
+_load_image_weights_file.loaded = False
+_load_image_weights_file.image_weights = {}
+
+
+def init_image_weights():
+    LOG.info("Initializing image weights for strategy use.")
+    _load_image_weights_file()
+
+
 def get_image_weights(image_names):
     """Return a dictionary of requested image names to weights."""
     default_weight = CONF.strategy.default_image_weight
     weights_by_name = {}
     for name in image_names:
-        weight = CONF.strategy.image_weights.get(name)
+        weight = _load_image_weights_file.image_weights.get(name)
         if weight is None:
             weight = default_weight
         weights_by_name[name] = weight
