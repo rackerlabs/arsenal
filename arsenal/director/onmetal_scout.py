@@ -77,13 +77,27 @@ KNOWN_FLAVORS = {
 }
 
 
-def convert_ironic_node(ironic_node):
-    flavor_name = None
+def resolve_flavor(ironic_node):
+    # Try to resolve the flavor using ironic_node.extra
+    extra = getattr(ironic_node, 'extra', None)
+    flavor_extra = None
+    if extra is not None:
+        flavor_extra = extra.get('flavor', None)
 
+    if flavor_extra is not None:
+        return flavor_extra
+
+    # Otherwise use known flavor hueristics to try identifying the flavor.
     for flavor, ident_func in KNOWN_FLAVORS.iteritems():
         if ident_func(ironic_node):
-            flavor_name = flavor
-            break
+            return flavor
+
+    # We failed...
+    return None
+
+
+def convert_ironic_node(ironic_node):
+    flavor_name = resolve_flavor(ironic_node)
 
     if flavor_name is None:
         LOG.error("Unable to identify flavor of node '%(node)s'",

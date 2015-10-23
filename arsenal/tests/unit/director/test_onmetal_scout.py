@@ -21,6 +21,8 @@ test_onmetal_scout
 
 Tests for `onmetal_scout` module.
 """
+import copy
+import uuid
 
 import mock
 from oslo_config import cfg
@@ -31,6 +33,89 @@ import arsenal.strategy.base as strat_base
 from arsenal.tests.unit import base
 
 CONF = cfg.CONF
+
+TEST_IRONIC_NODE_DATA = {
+    "target_power_state": None,
+    "links": [
+        {
+            "href": "http://localhost",
+            "rel": "self"
+        },
+        {
+            "href": "http://localhost/node_uuid",
+            "rel": "bookmark"
+        }
+    ],
+    "extra": {
+        "flavor": "onmetal-compute1",
+    },
+    "last_error": None,
+    "updated_at": "2015-10-16T17:33:09+00:00",
+    "maintenance_reason": None,
+    "provision_state": "available",
+    "clean_step": {},
+    "uuid": str(uuid.uuid4()),
+    "console_enabled": False,
+    "target_provision_state": None,
+    "provision_updated_at": "2015-10-16T08:05:10+00:00",
+    "power_state": "power on",
+    "inspection_started_at": None,
+    "inspection_finished_at": None,
+    "maintenance": False,
+    "driver": "agent_ipmitool",
+    "reservation": None,
+    "properties": {
+        "memory_mb": 32768,
+        "cpu_arch": "amd64",
+        "local_gb": 32,
+        "cpus": 20
+    },
+    "instance_uuid": None,
+    "name": None,
+    "driver_info": {
+        "cache_image_id": str(uuid.uuid4()),
+        "hardware_manager_version": None,
+        "ipmi_username": "clif",
+        "ipmi_address": "127.0.0.1",
+        "decommission_target_state": None,
+        "ipmi_password": "******",
+        "agent_url": "http://127.0.0.1:9999",
+        "cache_status": "cached",
+        "agent_last_heartbeat": 1430428362
+    },
+    "created_at": "2014-05-29T23:41:17+00:00",
+    "ports": [
+        {
+            "href": "http://localhost/",
+            "rel": "self"
+        },
+        {
+            "href": "http://localhost/",
+            "rel": "bookmark"
+        }
+    ],
+    "driver_internal_info": {
+        "clean_steps": None,
+        "hardware_manager_version": {
+            "generic_hardware_manager": "5",
+            "AnotherHardwareManager": "5",
+            "SSDHardwareManager": "5",
+            "NICHardwareManager": "6"
+        },
+        "is_whole_disk_image": True,
+        "agent_erase_devices_iterations": 1,
+        "agent_url": "http://127.0.0.1:9999",
+        "cleaning_reboot": True,
+        "agent_last_heartbeat": 1445016789
+    },
+    "instance_info": {}
+}
+
+
+class MockIronicNode(object):
+    def __init__(self, ironic_data):
+        for key in ironic_data.keys():
+            setattr(self, key, copy.deepcopy(ironic_data[key]))
 
 
 TEST_GLANCE_IMAGE_DATA = [
@@ -220,3 +305,54 @@ class TestOnMetalScout(base.TestCase):
                       state='provide')
         ]
         wrapper_call_mock.assert_has_calls(calls)
+
+    def test_convert_ironic_node(self):
+        test_node = MockIronicNode(TEST_IRONIC_NODE_DATA)
+        node_input = onmetal.convert_ironic_node(test_node)
+        expected_node = strat_base.NodeInput(
+            TEST_IRONIC_NODE_DATA['uuid'],
+            TEST_IRONIC_NODE_DATA['extra']['flavor'],
+            False,
+            True,
+            TEST_IRONIC_NODE_DATA['driver_info']['cache_image_id'])
+        for attr in ('node_uuid', 'flavor', 'provisioned',
+                     'cached', 'cached_image_uuid'):
+            expected = getattr(expected_node, attr)
+            got = getattr(node_input, attr)
+            self.assertEqual(expected, got,
+                             "Attribute on node returned by "
+                             "convert_ironic_node did not match expectations. "
+                             "Expected '%(expected)s', got '%(got)s'." % (
+                                {'expected': expected, 'got': got}))
+
+    def test_resolve_flavor_extra_is_not_set(self):
+        test_node = MockIronicNode(TEST_IRONIC_NODE_DATA)
+        test_node.extra = None
+        # Should still be able to resolve the flavor.
+        flavor = onmetal.resolve_flavor(test_node)
+        self.assertEqual("onmetal-compute1", flavor,
+                         "Flavor returned by resolve_flavor does not match "
+                         "expectations. Got '%(got)s', "
+                         "expected '%(expected)s'." % (
+                            {'got': flavor, 'expected': "onmetal-compute1"}))
+
+    def test_resolve_flavor_extra_is_set(self):
+        test_node = MockIronicNode(TEST_IRONIC_NODE_DATA)
+        expected_flavor = "onmetal-some_exotic_flavor"
+        test_node.extra['flavor'] = expected_flavor
+        flavor = onmetal.resolve_flavor(test_node)
+        self.assertEqual(expected_flavor, flavor,
+                         "Flavor returned by resolve_flavor does not match "
+                         "expectations. Got '%(got)s', "
+                         "expected '%(expected)s'." % (
+                            {'got': flavor, 'expected': expected_flavor}))
+
+    def test_resolve_flavor_does_not_resolve(self):
+        test_node = MockIronicNode(TEST_IRONIC_NODE_DATA)
+        test_node.extra = None
+        test_node.properties['memory_mb'] = 1337
+        flavor = onmetal.resolve_flavor(test_node)
+        self.assertEqual(None, flavor,
+                         "Flavor returned by resolve_flavor does not match "
+                         "expectations. Got '%(got)s', "
+                         "expected None." % ({'got': flavor}))
