@@ -21,6 +21,7 @@ test_onmetal_scout
 
 Tests for `onmetal_scout` module.
 """
+import copy
 import uuid
 
 import mock
@@ -114,7 +115,7 @@ TEST_IRONIC_NODE_DATA = {
 class MockIronicNode(object):
     def __init__(self, ironic_data):
         for key in ironic_data.keys():
-            setattr(self, key, ironic_data[key])
+            setattr(self, key, copy.deepcopy(ironic_data[key]))
 
 
 TEST_GLANCE_IMAGE_DATA = [

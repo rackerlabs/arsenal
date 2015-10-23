@@ -191,7 +191,7 @@ class TestCase(base.BaseTestCase):
                  'call_retry_interval': 3,
                  'os_tenant_name': 232323,
                  'os_username': 'test-user',
-                 'region_name': 'ORD',
+                 'region_name': 'IAD',
                  'service_name': 'cloudServersOpenStack',
                  'auth_system': 'rackspace',
                  'os_api_url': '{0}:{1}/identity/v2.0'.format(
