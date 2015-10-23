@@ -3,7 +3,7 @@
 # process, which may cause wedges in the gate later.
 
 
-pbr==1.2.0
+pbr==1.8.0
 Babel==1.3
 
 oslo.log==1.6.0
