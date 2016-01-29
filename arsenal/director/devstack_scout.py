@@ -15,15 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_config import cfg
-from oslo_log import log
-
-from arsenal.director import onmetal_scout as onmetal
-import arsenal.external.glance_client_wrapper as gcw
-
-LOG = log.getLogger(__name__)
-
-CONF = cfg.CONF
+from arsenal.director import openstack_scout
 
 
 def is_baremetal_image(glance_image):
@@ -34,40 +26,17 @@ def is_baremetal_flavor(flavor):
     return flavor.name == "baremetal"
 
 
-class DevstackScout(onmetal.OnMetalScout):
+class DevstackScout(openstack_scout.OpenstackScout):
     def __init__(self):
-        super(DevstackScout, self).__init__()
-        # NOTE(ClifHouck) OnMetalScout uses pyrax to auth the glance client,
-        # but we shouldn't need that for DevStack, so override that here.
-        # TODO(ClifHouck) Maybe DevStack scout shouldn't derive from
-        # OnMetalScout, and common behavior should be distilled into a base
-        # class/file.
-        self.glance_client = gcw.GlanceClientWrapper()
+        """Constructs a scout suitable for use against a Devstack deployment.
 
-    def retrieve_image_data(self):
-        """Get information about images to pass to a CachingStrategy object.
-
+        See http://docs.openstack.org/developer/devstack/
+        and http://docs.openstack.org/developer/ironic/dev/dev-quickstart.\
+                html#deploying-ironic-with-devstack
+        for more about using Ironic and Devstack together.
         """
-        self.glance_data = filter(is_baremetal_image,
-                                  self.glance_client.call("images.list"))
-        return map(onmetal.convert_glance_image, self.glance_data)
-
-    def retrieve_flavor_data(self):
-        """Get information about flavors to pass to a CachingStrategy object.
-
-        """
-        flavor_list = filter(is_baremetal_flavor,
-                             self.nova_client.call("flavors.list"))
-        unknown_flavors = filter(lambda f: (onmetal.KNOWN_FLAVORS.get(f.id)
-                                            is None),
-                                 flavor_list)
-        for flavor in unknown_flavors:
-            onmetal.KNOWN_FLAVORS[flavor.id] = lambda node: (
-                node.properties['memory_mb'] == flavor.ram)
-            LOG.warning("Detected an unknown flavor of id "
-                        "%(flavor_id)s. Adding to known flavor list, and "
-                        "identifying by amount of memory reported, which is "
-                        "%(memory)s",
-                        {'flavor_id': flavor.id,
-                         'memory': flavor.ram})
-        return map(onmetal.convert_nova_flavor, flavor_list)
+        super(DevstackScout, self).__init__(
+           flavor_filter=is_baremetal_flavor,
+           image_filter=is_baremetal_image,
+           glance_auth_token_func=None,
+           known_flavors=None)

@@ -177,7 +177,7 @@ class TestCase(base.BaseTestCase):
 
         config_dict = {
             'director':
-                {'scout': 'onmetal_scout.OnMetalScout',
+                {'scout': 'onmetal_scout.OnMetalV1Scout',
                  'dry_run': dry_run,
                  'poll_spacing': interval,
                  'directive_spacing': interval,

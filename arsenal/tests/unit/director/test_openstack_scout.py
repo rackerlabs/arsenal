@@ -16,10 +16,10 @@
 #    under the License.
 
 """
-test_onmetal_scout
+test_openstack_scout
 ----------------------------------
 
-Tests for `onmetal_scout` module.
+Tests for `openstack_scout` module.
 """
 import copy
 import uuid
@@ -28,6 +28,7 @@ import mock
 from oslo_config import cfg
 
 import arsenal.director.onmetal_scout as onmetal
+from arsenal.director import openstack_scout
 from arsenal.external import client_wrapper
 import arsenal.strategy.base as strat_base
 from arsenal.tests.unit import base
@@ -120,7 +121,7 @@ class MockIronicNode(object):
 
 TEST_GLANCE_IMAGE_DATA = [
     {
-        'flavor_classes': 'onmetal',
+        'flavor_classes': ['onmetal'],
         'vm_mode': 'metal',
         'visibility': 'public',
         'name': 'ubuntu-14.04',
@@ -129,7 +130,7 @@ TEST_GLANCE_IMAGE_DATA = [
         'file': 'ubuntu_14_04_image.pxe'
     },
     {
-        'flavor_classes': 'onmetal',
+        'flavor_classes': ['onmetal'],
         'vm_mode': 'metal',
         'visibility': 'public',
         'name': 'ubuntu-14.10',
@@ -138,7 +139,7 @@ TEST_GLANCE_IMAGE_DATA = [
         'file': 'ubuntu_14_10_image.pxe'
     },
     {
-        'flavor_classes': 'onmetal',
+        'flavor_classes': ['onmetal'],
         'vm_mode': 'metal',
         'visibility': 'public',
         'name': 'coreos',
@@ -147,7 +148,7 @@ TEST_GLANCE_IMAGE_DATA = [
         'file': 'coreos_image.pxe'
     },
     {
-        'flavor_classes': '!onmetal',
+        'flavor_classes': ['!onmetal'],
         'vm_mode': 'metal',
         'visibility': 'public',
         'name': 'ubuntu-14.04_not_onmetal',
@@ -156,7 +157,7 @@ TEST_GLANCE_IMAGE_DATA = [
         'file': 'ubuntu_14_04_not_onmetal_image.pxe'
     },
     {
-        'flavor_classes': 'onmetal',
+        'flavor_classes': ['onmetal'],
         'vm_mode': 'not_onmetal',
         'visibility': 'public',
         'name': 'ubuntu-14.04_vm_mode_not_onmetal',
@@ -165,7 +166,7 @@ TEST_GLANCE_IMAGE_DATA = [
         'file': 'ubuntu_14_04_vm_mode_not_onmetal_image.pxe'
     },
     {
-        'flavor_classes': 'onmetal',
+        'flavor_classes': ['onmetal'],
         'vm_mode': 'metal',
         'visibility': 'private',
         'name': 'coreos_private',
@@ -197,14 +198,20 @@ TEST_NOVA_FLAVOR_DATA = [
 ]
 
 
-class TestOnMetalScout(base.TestCase):
+class TestOpenstackScout(base.TestCase):
 
     @mock.patch.object(client_wrapper.OpenstackClientWrapper, 'call')
     def setUp(self, wrapper_call_mock):
-        super(TestOnMetalScout, self).setUp()
+        super(TestOpenstackScout, self).setUp()
         CONF.set_override('api_endpoint', 'http://glance_endpoint', 'glance')
         wrapper_call_mock.return_value = TEST_GLANCE_IMAGE_DATA
-        self.scout = onmetal.OnMetalScout()
+        # NOTE (ClifHouck) The OnMetalV1Scout inherits from OpenstackScout
+        # without adding any real functionality. It just adds some concrete
+        # filters for flavors and images while leaving class behavior alone.
+        # If this changes, maybe rework some of these tests. Otherwise,
+        # steam ahead!
+        self.scout = onmetal.OnMetalV1Scout()
+        assert(isinstance(self.scout, openstack_scout.OpenstackScout))
         self.scout.retrieve_image_data()
 
     def test_is_node_provisioned(self):
@@ -213,20 +220,20 @@ class TestOnMetalScout(base.TestCase):
         # Maintenanced nodes count as provisioned.
         ironic_node.provision_state = None
         ironic_node.maintenance = True
-        self.assertTrue(onmetal.is_node_provisioned(ironic_node))
+        self.assertTrue(openstack_scout.is_node_provisioned(ironic_node))
 
         # Not maintenanced, but has a provision state that is not 'available'.
         ironic_node.provision_state = "cleaning"
         ironic_node.maintenance = False
-        self.assertTrue(onmetal.is_node_provisioned(ironic_node))
+        self.assertTrue(openstack_scout.is_node_provisioned(ironic_node))
 
         # Not maintenanced, and has a provision state that is 'available'.
         ironic_node.provision_state = "available"
-        self.assertFalse(onmetal.is_node_provisioned(ironic_node))
+        self.assertFalse(openstack_scout.is_node_provisioned(ironic_node))
 
         # No provision state nor in maintenance, so not provisioned.
         ironic_node.provision_state = None
-        self.assertFalse(onmetal.is_node_provisioned(ironic_node))
+        self.assertFalse(openstack_scout.is_node_provisioned(ironic_node))
 
     @mock.patch.object(client_wrapper.OpenstackClientWrapper, 'call')
     def test_issue_cache_node_good_image(self, wrapper_call_mock):
@@ -266,9 +273,9 @@ class TestOnMetalScout(base.TestCase):
                             'onmetal-memory1')
 
         # NOTE(ClifHouck): This also implicitly tests retrieve_flavor_data's
-        # behavior to add unknown flavors to onmetal_scout.KNOWN_FLAVORS.
+        # behavior to add unknown flavors to onmetal.KNOWN_V1_FLAVORS.
         expected_result = [
-            strat_base.FlavorInput(f, onmetal.KNOWN_FLAVORS.get(f))
+            strat_base.FlavorInput(f, onmetal.KNOWN_V1_FLAVORS.get(f))
             for f in expected_flavors
         ]
         self.assertItemsEqual([e.name for e in expected_result],
@@ -308,7 +315,7 @@ class TestOnMetalScout(base.TestCase):
 
     def test_convert_ironic_node(self):
         test_node = MockIronicNode(TEST_IRONIC_NODE_DATA)
-        node_input = onmetal.convert_ironic_node(test_node)
+        node_input = openstack_scout.convert_ironic_node(test_node)
         expected_node = strat_base.NodeInput(
             TEST_IRONIC_NODE_DATA['uuid'],
             TEST_IRONIC_NODE_DATA['extra']['flavor'],
@@ -329,7 +336,8 @@ class TestOnMetalScout(base.TestCase):
         test_node = MockIronicNode(TEST_IRONIC_NODE_DATA)
         test_node.extra = None
         # Should still be able to resolve the flavor.
-        flavor = onmetal.resolve_flavor(test_node)
+        flavor = openstack_scout.resolve_flavor(test_node,
+                                                onmetal.KNOWN_V1_FLAVORS)
         self.assertEqual("onmetal-compute1", flavor,
                          "Flavor returned by resolve_flavor does not match "
                          "expectations. Got '%(got)s', "
@@ -340,7 +348,7 @@ class TestOnMetalScout(base.TestCase):
         test_node = MockIronicNode(TEST_IRONIC_NODE_DATA)
         expected_flavor = "onmetal-some_exotic_flavor"
         test_node.extra['flavor'] = expected_flavor
-        flavor = onmetal.resolve_flavor(test_node)
+        flavor = openstack_scout.resolve_flavor(test_node)
         self.assertEqual(expected_flavor, flavor,
                          "Flavor returned by resolve_flavor does not match "
                          "expectations. Got '%(got)s', "
@@ -351,7 +359,7 @@ class TestOnMetalScout(base.TestCase):
         test_node = MockIronicNode(TEST_IRONIC_NODE_DATA)
         test_node.extra = None
         test_node.properties['memory_mb'] = 1337
-        flavor = onmetal.resolve_flavor(test_node)
+        flavor = openstack_scout.resolve_flavor(test_node)
         self.assertEqual(None, flavor,
                          "Flavor returned by resolve_flavor does not match "
                          "expectations. Got '%(got)s', "
