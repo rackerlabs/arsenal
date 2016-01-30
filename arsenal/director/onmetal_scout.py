@@ -93,12 +93,12 @@ def is_v2_flavor_generic(ironic_node,
 
 
 KNOWN_V2_FLAVORS = {
-    'onmetal-general2-large':
-        lambda node: is_v2_flavor_generic(node, 131072, 400, 24),
-    'onmetal-general2-medium':
-        lambda node: is_v2_flavor_generic(node, 65536, 400, 24),
     'onmetal-general2-small':
-        lambda node: is_v2_flavor_generic(node, 32768, 400, 12),
+        lambda node: is_v2_flavor_generic(node, 32768, 800, 12),
+    'onmetal-general2-medium':
+        lambda node: is_v2_flavor_generic(node, 65536, 800, 24),
+    'onmetal-general2-large':
+        lambda node: is_v2_flavor_generic(node, 131072, 800, 24),
     'onmetal-io2':
         lambda node: is_v2_flavor_generic(node, 131072, 120, 40),
 }
