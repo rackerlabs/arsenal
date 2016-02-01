@@ -43,10 +43,10 @@ def strat_directive_mock():
 class TestScheduler(base.TestCase):
 
     @mock.patch.object(scheduler.DirectorScheduler, 'periodic_tasks')
-    @mock.patch('arsenal.director.onmetal_scout.OnMetalScout')
+    @mock.patch('arsenal.director.onmetal_scout.OnMetalV1Scout')
     def setUp(self, onmetal_scout_mock, periodic_task_mock):
         super(TestScheduler, self).setUp()
-        CONF.set_override('scout', 'onmetal_scout.OnMetalScout', 'director')
+        CONF.set_override('scout', 'onmetal_scout.OnMetalV1Scout', 'director')
         CONF.set_override('dry_run', False, 'director')
         # Make sure both rate limiters are off at the beginning of the test.
         CONF.set_override('cache_directive_rate_limit', 0, 'director')

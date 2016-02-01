@@ -33,6 +33,20 @@ Scout, which is defined in `scout.py`_.
 
 A couple of pre-made Scouts are currently included in Arsenal.
 
+.. _Openstack Scout:
+
+Openstack Scout
+~~~~~~~~~~~~~~~
+
+The Openstack Scout will communicate with Ironic_, Nova_, and Glance_ services, 
+and handle fulfilling Strategy actions by talking to Ironic_.
+
+Most Scouts hoping to be used with Openstack services will derive from this 
+Scout while passing filtration functions for flavors and images to 
+OpenstackScout via a super() call during __init__.
+
+For more information see, openstack_scout.py_.
+
 .. _DevStack Scout:
 
 DevStack Scout
@@ -42,21 +56,21 @@ This Scout is designed to be used with the DevStack_ project, which provides
 a relatively easy way to setup an Openstack-based environment on a single 
 machine, typically for testing purposes.
 
-The DevStack Scout will communicate with Ironic_, Nova_, and Glance_ services, 
-and filter for baremetal nodes. See `Ironic documentation`_ on how to 
-configure virtual baremetal nodes for use with DevStack.
+See `Ironic documentation`_ on how to configure virtual baremetal nodes for
+use with DevStack.
 
 For more information see, devstack_scout.py_.
 
 .. _OnMetal Scout:
 
-OnMetal Scout
-~~~~~~~~~~~~~
+OnMetal Scouts
+~~~~~~~~~~~~~~
 
-The OnMetal Scout is designed to work with Rackspace's `OnMetal product`_. 
-While this specific Scout will probably not be directly useful to anyone 
-outside of Rackspace, it can still be instructive to view a fully functional, 
-concrete implementation of a Scout. 
+The OnMetal Scouts are designed to work with Rackspace's `OnMetal product`_. 
+While these specific Scouts will probably not be directly useful to anyone 
+outside of Rackspace, it can still be instructive to view fully functional
+implementations of `Openstack Scout`_ with filters. 
+
 
 For more information, see onmetal_scout.py_.
 
@@ -130,3 +144,4 @@ configure this Strategy.
 .. _DevStack: http://docs.openstack.org/developer/devstack/ 
 .. _onmetal_scout.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/director/onmetal_scout.py
 .. _devstack_scout.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/director/devstack_scout.py
+.. _openstack_scout.py: https://github.com/rackerlabs/arsenal/blob/master/arsenal/director/openstack_scout.py
