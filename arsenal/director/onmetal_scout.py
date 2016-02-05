@@ -108,7 +108,7 @@ def is_onmetal_v2_image(glance_image):
     return is_onmetal_image(glance_image, 'onmetal2')
 
 
-ONMETAL_V2_FLAVOR_NAME_REGEX = re.compile('onmetal-[a-z\-]2')
+ONMETAL_V2_FLAVOR_NAME_REGEX = re.compile('onmetal-[a-z-]+2')
 
 
 def is_onmetal_v2_flavor(flavor):
@@ -119,7 +119,7 @@ def is_onmetal_v2_flavor(flavor):
 class OnMetalV2Scout(openstack_scout.OpenstackScout):
     """Scouts and filters data for the OnMetal V2 Rackspace service."""
     def __init__(self):
-        super(OnMetalV1Scout, self).__init__(
+        super(OnMetalV2Scout, self).__init__(
             flavor_filter=is_onmetal_v2_flavor,
             image_filter=is_onmetal_v2_image,
             glance_auth_token_func=get_pyrax_token,
