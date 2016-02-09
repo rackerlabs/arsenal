@@ -51,6 +51,11 @@ KNOWN_V1_FLAVORS = {
 
 def is_onmetal_image(glance_image, specific_flavor_class):
     flavor_classes = glance_image.get('flavor_classes')
+
+    # Sometimes an image will have no class! Shocking!
+    if flavor_classes is None:
+        return False
+
     return ('!onmetal' not in flavor_classes and
             specific_flavor_class in flavor_classes and
             glance_image.get('vm_mode') == 'metal' and
