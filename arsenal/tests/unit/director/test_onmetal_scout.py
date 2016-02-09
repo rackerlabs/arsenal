@@ -81,6 +81,21 @@ class TestOnMetalScouts(base.TestCase):
                 'vm_mode': 'virt',
                 'visibility': 'public'
             },
+            {
+                'flavor_classes': None,
+                'vm_mode': 'virt',
+                'visibility': 'public'
+            },
+            {
+                'flavor_classes': ['onmetal'],
+                'vm_mode': None,
+                'visibility': 'public'
+            },
+            {
+                'flavor_classes': ['onmetal'],
+                'vm_mode': 'metal',
+                'visibility': None
+            },
         )
 
         for image in onmetal_images:
