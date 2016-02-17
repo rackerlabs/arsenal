@@ -14,7 +14,7 @@
 #    under the License.
 
 import mock
-from novaclient.v2 import client as nova_client
+from novaclient import client as nova_client
 from oslo_config import cfg
 
 from arsenal.external import nova_client_wrapper as client_wrapper
@@ -47,30 +47,33 @@ class NovaClientWrapperTestCase(test_base.TestCase):
         self.novaclient = client_wrapper.NovaClientWrapper()
         # Do not waste time sleeping
         cfg.CONF.set_override('call_retry_interval', 0, 'client_wrapper')
+        # Setup some config variables.
+        cfg.CONF.set_override('api_version', '2', 'nova')
+        cfg.CONF.set_override('admin_username', 'myusername', 'nova')
+        cfg.CONF.set_override('admin_password', 'somepass', 'nova')
+        cfg.CONF.set_override('admin_tenant_name', 'garfield', 'nova')
+        cfg.CONF.set_override('admin_url', 'some_host', 'nova')
+        cfg.CONF.set_override('service_name', 'clouds', 'nova')
+        cfg.CONF.set_override('region_name', 'ord', 'nova')
 
     @mock.patch.object(nova_client, 'Client')
-    def test__get_client_no_auth_token(self, mock_nova_cli):
-        self.flags(admin_auth_token=None, group='nova')
+    def test__get_client(self, mock_nova_cli):
         novaclient = client_wrapper.NovaClientWrapper()
         # dummy call to have _get_client() called
         novaclient.call("flavor.list")
-        expected = {'username': CONF.nova.admin_username,
-                    'api_key': CONF.nova.admin_password,
-                    'auth_url': CONF.nova.admin_url,
-                    'project_id': CONF.nova.admin_tenant_name,
-                    'insecure': True,
-                    'service_name': CONF.nova.service_name,
-                    'region_name': CONF.nova.region_name,
-                    'auth_system': CONF.nova.auth_system,
-                    'auth_plugin': None}
-        mock_nova_cli.assert_called_once_with(**expected)
-
-    @mock.patch.object(nova_client, 'Client')
-    def test__get_client_with_auth_token(self, mock_nova_cli):
-        self.flags(admin_auth_token='fake-token', group='nova')
-        novaclient = client_wrapper.NovaClientWrapper()
-        # dummy call to have _get_client() called
-        novaclient.call("flavor.list")
-        expected = {'auth_token': 'fake-token',
-                    'auth_url': CONF.nova.admin_url}
-        mock_nova_cli.assert_called_once_with(**expected)
+        expected_args = (
+            CONF.nova.api_version,
+            CONF.nova.admin_username,
+            CONF.nova.admin_password,
+            CONF.nova.admin_tenant_name,
+            CONF.nova.admin_url,
+        )
+        expected_kw_args = {
+            'insecure': True,
+            'service_name': CONF.nova.service_name,
+            'region_name': CONF.nova.region_name,
+            'auth_system': CONF.nova.auth_system,
+            'auth_plugin': None
+        }
+        mock_nova_cli.assert_called_once_with(*expected_args,
+                                              **expected_kw_args)

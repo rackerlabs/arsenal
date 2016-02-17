@@ -18,8 +18,8 @@
 
 import importlib
 
+from novaclient import client
 from novaclient import exceptions as nova_exc
-from novaclient.v2 import client
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -36,9 +36,6 @@ opts = [
     cfg.StrOpt('admin_password',
                secret=True,
                help='Nova keystone admin password.'),
-    cfg.StrOpt('admin_auth_token',
-               secret=True,
-               help='Nova keystone auth token.'),
     cfg.StrOpt('admin_url',
                help='Keystone public API endpoint.'),
     cfg.StrOpt('client_log_level',
@@ -54,6 +51,9 @@ opts = [
                default=2,
                help='How often to retry in seconds when a request '
                     'does conflict'),
+    cfg.StrOpt('api_version',
+               default='2',
+               help='The API version of the nova client to use.'),
     cfg.StrOpt('region_name',
                help='Nova region name.'),
     cfg.StrOpt('service_name',
@@ -90,8 +90,6 @@ class NovaClientWrapper(client_wrapper.OpenstackClientWrapper):
             name="Nova")
 
     def _get_new_client(self):
-        auth_token = first_not_none([CONF.nova.admin_auth_token,
-                                     CONF.client_wrapper.os_auth_token])
         auth_plugin = None
         if CONF.nova.auth_plugin is not None:
             auth_plugin_module = importlib.import_module(CONF.nova.auth_plugin)
@@ -101,38 +99,34 @@ class NovaClientWrapper(client_wrapper.OpenstackClientWrapper):
         # Instead of just using client_wrapper configuration options,
         # provide them as a fallback if nova configuration options are not
         # defined.
-        if auth_token is None:
-            kwargs = {'username':
-                      first_not_none([CONF.nova.admin_username,
-                                      CONF.client_wrapper.os_username]),
-                      'api_key':
-                      first_not_none([CONF.nova.admin_password,
-                                      CONF.client_wrapper.os_password]),
-                      'auth_url':
-                      first_not_none([CONF.nova.admin_url,
-                                      CONF.client_wrapper.os_api_url]),
-                      'project_id':
-                      first_not_none([CONF.nova.admin_tenant_name,
-                                      CONF.client_wrapper.os_tenant_name]),
-                      'insecure': True,
-                      'service_name':
-                      first_not_none([CONF.nova.service_name,
-                                      CONF.client_wrapper.service_name]),
-                      'region_name':
-                      first_not_none([CONF.nova.region_name,
-                                      CONF.client_wrapper.region_name]),
-                      'auth_system':
-                      first_not_none([CONF.nova.auth_system,
-                                      CONF.client_wrapper.auth_system]),
-                      'auth_plugin': auth_plugin}
-        else:
-            kwargs = {'auth_token': auth_token,
-                      'auth_url':
-                      first_not_none([CONF.nova.admin_url,
-                                     CONF.client_wrapper.os_api_url])}
+        version = first_not_none([CONF.nova.api_version])
+        username = first_not_none([CONF.nova.admin_username,
+                                   CONF.client_wrapper.os_username])
+        api_key = first_not_none([CONF.nova.admin_password,
+                                  CONF.client_wrapper.os_password])
+        project_id = first_not_none([CONF.nova.admin_tenant_name,
+                                     CONF.client_wrapper.os_tenant_name])
+        auth_url = first_not_none([CONF.nova.admin_url,
+                                   CONF.client_wrapper.os_api_url])
+
+        args = (version, username, api_key, project_id, auth_url)
+
+        kwargs = {
+            'insecure': True,
+            'service_name':
+                first_not_none([CONF.nova.service_name,
+                                CONF.client_wrapper.service_name]),
+            'region_name':
+                first_not_none([CONF.nova.region_name,
+                                CONF.client_wrapper.region_name]),
+            'auth_system':
+                first_not_none([CONF.nova.auth_system,
+                                CONF.client_wrapper.auth_system]),
+            'auth_plugin': auth_plugin
+        }
 
         try:
-            cli = client.Client(**kwargs)
+            cli = client.Client(*args, **kwargs)
         except nova_exc.Unauthorized:
             msg = "Unable to authenticate Nova client."
             LOG.error(msg)
