@@ -39,6 +39,24 @@ def strat_directive_mock():
         sb.EjectNode('node-J'),
     ]
 
+FAKE_FLAVOR_DATA = [
+    sb.FlavorInput('io-flavor', lambda n: True),
+    sb.FlavorInput('memory-flavor', lambda n: True),
+    sb.FlavorInput('cpu-flavor', lambda n: True)
+]
+
+FAKE_IMAGE_DATA = [
+    sb.ImageInput('Ubuntu', 'aaaa', 'ubuntu-checksum'),
+    sb.ImageInput('CoreOS', 'aaaa', 'coreos-checksum'),
+    sb.ImageInput('ArchLinux', 'aaaa', 'archlinux-checksum')
+]
+
+FAKE_NODE_DATA = [
+    sb.NodeInput('abcd', 'io-flavor', False, False),
+    sb.NodeInput('hjkl', 'memory-flavor', False, False),
+    sb.NodeInput('asdf', 'compute-flavor', False, False)
+]
+
 
 class TestScheduler(base.TestCase):
 
@@ -52,7 +70,15 @@ class TestScheduler(base.TestCase):
         CONF.set_override('cache_directive_rate_limit', 0, 'director')
         CONF.set_override('eject_directive_rate_limit', 0, 'director')
 
+        onmetal_scout_mock.retrieve_node_data = mock.Mock()
+        onmetal_scout_mock.retrieve_node_data.return_value = FAKE_NODE_DATA
+        self.onmetal_scout_mock = onmetal_scout_mock
+
         self.scheduler = scheduler.DirectorScheduler()
+        self.scheduler.scout = onmetal_scout_mock
+        self.scheduler.node_data = FAKE_NODE_DATA
+        self.scheduler.flavor_data = FAKE_FLAVOR_DATA
+        self.scheduler.image_data = FAKE_IMAGE_DATA
         self.scheduler.strat.directives = strat_directive_mock
         self.issue_action_mock = mock.MagicMock()
         self.scheduler.scout.issue_action = self.issue_action_mock
@@ -131,3 +157,24 @@ class TestScheduler(base.TestCase):
         CONF.set_override('log_statistics', False, 'director')
         self.scheduler.issue_directives(None)
         self.assertFalse(log_mock.called)
+
+    def test_issue_directives_empty_data_causes_strategy_suspension(self):
+        self.scheduler.node_data = []
+        self.scheduler.flavor_data = FAKE_FLAVOR_DATA
+        self.scheduler.image_data = FAKE_IMAGE_DATA
+
+        suspension_test_cases = (([], FAKE_FLAVOR_DATA, FAKE_IMAGE_DATA),
+                                 (FAKE_NODE_DATA, [], FAKE_IMAGE_DATA),
+                                 (FAKE_NODE_DATA, FAKE_FLAVOR_DATA, []),
+                                 ([], [], FAKE_IMAGE_DATA),
+                                 (FAKE_NODE_DATA, [], []))
+
+        for case in suspension_test_cases:
+            self.onmetal_scout_mock.retrieve_node_data.return_value = case[0]
+            self.scheduler.flavor_data = case[1]
+            self.scheduler.image_data = case[2]
+            self.scheduler.strat.directives = mock.Mock()
+
+            self.scheduler.issue_directives(None)
+
+            self.assertFalse(self.scheduler.strat.directives.called)

@@ -17,6 +17,9 @@ import unittest
 from arsenal.tests.functional import base as test_base
 
 
+ARSENAL_START_MESSAGE = "Finished issuing directives."
+
+
 class TestArsenalFunctional(test_base.TestCase):
 
     def setUp(self):
@@ -92,7 +95,7 @@ class TestArsenalStrategy(test_base.TestCase):
         # start arsenal and verify the unprovisioned node count is the same
         self.start_arsenal_service(
             config_file=config_file,
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         after = self.get_unprovisioned_ironic_nodes()
         self.assertEqual(len(before), len(after))
 
@@ -118,7 +121,7 @@ class TestArsenalStrategy(test_base.TestCase):
         # start arsenal and verify the unprovisioned node count is the same
         self.start_arsenal_service(
             config_file=config_file,
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         after = self.get_unprovisioned_ironic_nodes()
         self.assertEqual(len(before), len(after))
 
@@ -144,7 +147,7 @@ class TestArsenalStrategy(test_base.TestCase):
         # start arsenal and verify the unprovisioned node count is the same
         self.start_arsenal_service(
             config_file=config_file,
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         after = self.get_unprovisioned_ironic_nodes()
         self.assertEqual(len(before), len(after))
 
@@ -173,7 +176,7 @@ class TestArsenalStrategy(test_base.TestCase):
         # start arsenal
         self.start_arsenal_service(
             config_file=config_file,
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
 
         # get list of cached nodes and verify that it is 100% of available
         # nodes are cached without the image with image_weight as 0
@@ -203,7 +206,7 @@ class TestArsenalStrategy(test_base.TestCase):
         # start arsenal
         self.start_arsenal_service(
             config_file=config_file,
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
 
         # get list of cached nodes and verify that it is 100% of available
         # nodes are cached without the image with image_weight as 0
@@ -230,7 +233,7 @@ class TestArsenalStrategy(test_base.TestCase):
         # start arsenal
         self.start_arsenal_service(
             config_file=config_file,
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
 
         # get list of cached nodes and verify that images with the most
         # weight are cached the most
@@ -251,7 +254,7 @@ class TestArsenalStrategy(test_base.TestCase):
 
         # start arsenal and verify cached nodes are of all images
         self.start_arsenal_service(
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         cached_nodes = self.get_cached_ironic_nodes()
         nodes_per_image = self.list_ironic_nodes_by_image(cached_nodes,
                                                           count=True)
@@ -265,7 +268,7 @@ class TestArsenalStrategy(test_base.TestCase):
 
         # start arsenal and verify cached nodes are of all images
         self.start_arsenal_service(
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         unprovisioned_nodes = self.get_unprovisioned_ironic_nodes()
         images_before = self.get_onmetal_images_ids_from_mimic()
 
@@ -296,7 +299,7 @@ class TestArsenalStrategy(test_base.TestCase):
 
         # start arsenal and verify cached nodes are of all images
         self.start_arsenal_service(
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         after = self.get_unprovisioned_ironic_nodes()
         cached_nodes_before = self.get_cached_ironic_nodes()
         nodes_per_image_before = self.list_ironic_nodes_by_image(
@@ -330,7 +333,7 @@ class TestArsenalStrategy(test_base.TestCase):
 
         # start arsenal and verify cached nodes are of all images
         self.start_arsenal_service(
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         unprovisioned_nodes = self.get_unprovisioned_ironic_nodes()
         cached_nodes_before = self.get_cached_ironic_nodes()
         nodes_per_image_before = self.list_ironic_nodes_by_image(
@@ -364,7 +367,7 @@ class TestArsenalStrategy(test_base.TestCase):
 
         # start arsenal and verify cached nodes
         self.start_arsenal_service(
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         after = self.get_unprovisioned_ironic_nodes()
         self.assertEqual(len(before), len(after))
         cached_nodes = self.get_cached_ironic_nodes()
@@ -393,7 +396,7 @@ class TestArsenalStrategy(test_base.TestCase):
 
         # start arsenal and verify cached nodes
         self.start_arsenal_service(
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         after = self.get_unprovisioned_ironic_nodes()
         cached_nodes = self.get_cached_ironic_nodes()
         expected_cached_nodes = self.calculate_percentage_to_be_cached(
@@ -421,7 +424,7 @@ class TestArsenalStrategy(test_base.TestCase):
 
         # start arsenal and verify cached nodes
         self.start_arsenal_service(
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         after = self.get_unprovisioned_ironic_nodes()
         cached_nodes = self.get_cached_ironic_nodes()
         expected_cached_nodes = self.calculate_percentage_to_be_cached(
@@ -445,7 +448,7 @@ class TestArsenalStrategy(test_base.TestCase):
 
         # start arsenal and verify cached nodes are of all images
         self.start_arsenal_service(
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         provisioned_nodes = self.get_provisioned_ironic_nodes()
 
         # get cached nodes list and provision them to be 'active'
@@ -472,7 +475,7 @@ class TestArsenalStrategy(test_base.TestCase):
 
         # start arsenal and verify cached nodes are of all images
         self.start_arsenal_service(
-            service_status="Got 0 cache directives from the strategy")
+            service_status=ARSENAL_START_MESSAGE)
         provisioned_nodes = self.get_provisioned_ironic_nodes()
         uncached_unprov_nodes = self.get_uncached_unprovisioned_ironic_nodes()
 
