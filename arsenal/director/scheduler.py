@@ -185,6 +185,8 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
 
     @periodic_task.periodic_task(spacing=CONF.director.directive_spacing)
     def issue_directives(self, context):
+        LOG.info("Consulting strategy and issuing directives.")
+
         # NOTE(ClifHouck): It's really important to have node state be as
         # current as possible. So instead of polling for it, I'm leaving it
         # tied to updating the state of the strategy.
@@ -197,6 +199,25 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
             sb.log_overall_node_statistics(self.node_data,
                                            self.flavor_data,
                                            self.image_data)
+
+        if len(self.node_data) == 0:
+            LOG.warning("No images to cache! Are you sure Arsenal is talking "
+                        "to Glance properly?")
+        if len(self.flavor_data) == 0:
+            LOG.warning("No flavors detected! Are you sure Arsenal is talking "
+                        "to Nova properly?")
+        if len(self.image_data) == 0:
+            LOG.warning("No nodes detected! Are you sure Arsenal is talking "
+                        "to Ironic properly?")
+
+        probable_scouting_error = (len(self.node_data) == 0 or
+                                   len(self.image_data) == 0 or
+                                   len(self.flavor_data) == 0)
+        if probable_scouting_error:
+            LOG.error("Probable scouting error detected. Arsenal will not "
+                      "consult the configured Strategy nor issue new "
+                      "directives until scouting returns to normal.")
+            return
 
         directives = self.strat.directives()
 
@@ -214,3 +235,5 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
         else:
             LOG.info("Issuing all directives through configured scout.")
             map(self.scout.issue_action, directives)
+
+        LOG.info("Finished issuing directives.")
