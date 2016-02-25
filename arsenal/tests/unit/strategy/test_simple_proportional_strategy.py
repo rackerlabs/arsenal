@@ -21,8 +21,10 @@ behavior appears to be correct.
 """
 
 from __future__ import division
+import copy
 import random
 
+import mock
 from oslo_config import cfg
 
 from arsenal.strategy import base as sb
@@ -87,6 +89,27 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         for env_name, env_dict in self.environments.iteritems():
             env_dict['flavors'] = sb_test.TEST_FLAVORS
             env_dict['images'] = sb_test.TEST_IMAGES
+
+    def test_segregate_nodes(self):
+        test_env = copy.deepcopy(self.environments["random-nodes(144)"])
+
+        result = sps.segregate_nodes(test_env['nodes'], test_env['flavors'])
+
+        for flavor in test_env['flavors']:
+            self.assertEqual(
+                len(result[flavor.name]),
+                len(filter(lambda n: n.flavor == flavor.name,
+                           test_env['nodes'])))
+
+    @mock.patch.object(sps.LOG, 'error')
+    def test_segregate_nodes_node_with_unrecognized_flavor(self,
+                                                           log_error_mock):
+        test_env = copy.deepcopy(self.environments["random-nodes(144)"])
+        test_env['nodes'][0].flavor = 'WTF'
+
+        sps.segregate_nodes(test_env['nodes'], test_env['flavors'])
+
+        self.assertTrue(log_error_mock.called)
 
     def test_proportion_goal_versus_several_percentages(self):
         print("Starting test_proportion_goal_versus_several_percentages.")

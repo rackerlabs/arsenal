@@ -70,8 +70,9 @@ def segregate_nodes(nodes, flavors):
     for node in nodes:
         if node.flavor not in flavor_names:
             LOG.error("Node '%(node)s'with unrecognized flavor '%(flavor)s "
-                      "detected. ", {'node': node.uuid, 'flavor': node.flavor})
-            next
+                      "detected. ", {'node': node.node_uuid,
+                                     'flavor': node.flavor})
+            continue
         nodes_by_flavor[node.flavor].append(node)
 
     return nodes_by_flavor
