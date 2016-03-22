@@ -66,8 +66,12 @@ def is_onmetal_v1_image(glance_image):
     return is_onmetal_image(glance_image, 'onmetal')
 
 
+ONMETAL_V1_FLAVOR_NAME_REGEX = re.compile('onmetal-[a-z-]+1')
+
+
 def is_onmetal_v1_flavor(flavor):
-    return len(flavor.id) > 8 and flavor.id[0:8] == 'onmetal-'
+    match_result = ONMETAL_V1_FLAVOR_NAME_REGEX.match(flavor.id)
+    return match_result is not None
 
 
 class OnMetalV1Scout(openstack_scout.OpenstackScout):
