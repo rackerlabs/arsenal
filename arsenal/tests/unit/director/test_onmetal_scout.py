@@ -151,3 +151,18 @@ class TestOnMetalScouts(base.TestCase):
                                              expected_memory_mb,
                                              expected_local_gb,
                                              expected_cpus))
+
+    def test_is_onmetal_v1_flavor(self):
+        v1_flavors = ('onmetal-compute1', 'onmetal-io1', 'onmetal-memory1')
+        not_v1_flavors = ('onmetal-io2', 'onmetal-small2',
+                          'onmetal-general2-small',
+                          'onmetal-general2-medium',
+                          'onmetal-general2-large', 'onmetal-3')
+
+        for flavor in v1_flavors:
+            self.assertTrue(onmetal.is_onmetal_v1_flavor(mock.Mock(id=flavor)),
+                            flavor)
+
+        for flavor in not_v1_flavors:
+            self.assertFalse(
+                onmetal.is_onmetal_v1_flavor(mock.Mock(id=flavor)), flavor)
