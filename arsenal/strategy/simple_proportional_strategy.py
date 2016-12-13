@@ -49,15 +49,16 @@ CONF.register_opts(opts, sps_group)
 
 
 def nodes_available_for_caching(nodes):
-    return filter(lambda node: node.can_cache(), nodes)
+    return list(filter(lambda node: node.can_cache(), nodes))
 
 
 def cached_nodes(nodes):
-    return filter(lambda node: not node.provisioned and node.cached, nodes)
+    return list(filter(lambda node: not node.provisioned and node.cached,
+                       nodes))
 
 
 def unprovisioned_nodes(nodes):
-    return filter(lambda node: not node.provisioned, nodes)
+    return list(filter(lambda node: not node.provisioned, nodes))
 
 
 def segregate_nodes(nodes, flavors):

@@ -119,11 +119,11 @@ def get_configured_cache_rate_limiter():
 
 def rate_limit_directives(rate_limiter, directives, name, identity_func):
         if rate_limiter is not None:
-            filtered_directives = filter(identity_func, directives)
+            filtered_directives = list(filter(identity_func, directives))
             LOG.info("Got %(num)d %(name)s directives from the strategy.",
                      {'num': len(filtered_directives), 'name': name})
-            other_directives = filter(lambda d: not identity_func(d),
-                                      directives)
+            other_directives = list(filter(lambda d: not identity_func(d),
+                                      directives))
             rate_limiter.add_items(filtered_directives)
             rate_limited_directives = rate_limiter.withdraw_items()
             LOG.info("Limited %(name)s directives issued to %(num)d, due to "

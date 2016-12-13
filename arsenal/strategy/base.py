@@ -189,11 +189,13 @@ def build_node_statistics(nodes, images):
     """Build a dictionary of cache statistics about a group of nodes."""
     # Generic statistics applicable to all groups of nodes.
     node_statistics = {
-        'provisioned': len(filter(lambda n: n.provisioned, nodes)),
-        'not provisioned': len(filter(lambda n: not n.provisioned, nodes)),
-        'available (not cached)': len(filter(lambda n: n.can_cache(), nodes)),
+        'provisioned': len(list(filter(lambda n: n.provisioned, nodes))),
+        'not provisioned': len(list(filter(lambda n: not n.provisioned,
+                                           nodes))),
+        'available (not cached)': len(list(filter(lambda n: n.can_cache(),
+                                                  nodes))),
         'cached (includes \'caching\')':
-            len(filter(lambda n: n.cached and not n.provisioned, nodes)),
+            len(list(filter(lambda n: n.cached and not n.provisioned, nodes))),
         'total': len(nodes),
         'images': collections.defaultdict(lambda: 0)
     }
@@ -237,7 +239,7 @@ def log_overall_node_statistics(nodes, flavors, images):
     # As well as those divided by flavor.
     flavor_stats = {}
     for flavor in flavors:
-        flavor_nodes = filter(lambda n: n.flavor == flavor.name, nodes)
+        flavor_nodes = list(filter(lambda n: n.flavor == flavor.name, nodes))
         flavor_stats[flavor.name] = build_node_statistics(flavor_nodes,
                                                           images)
         LOG.info("Statistics for '%(name)s' flavor.", {'name': flavor.name})
@@ -566,8 +568,8 @@ def image_weight_guided_ejection(images, nodes):
     ]
 
     # Only those that are cached too much.
-    images_cached_too_much = filter(lambda pair: pair[1] < 0,
-                                    distribution_difference)
+    images_cached_too_much = list(filter(lambda pair: pair[1] < 0,
+                                         distribution_difference))
 
     # This computes the approximate number of nodes we should eject to
     # best reach the desired distribution.

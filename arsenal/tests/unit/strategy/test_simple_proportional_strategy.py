@@ -99,8 +99,8 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         for flavor in test_env['flavors']:
             self.assertEqual(
                 len(result[flavor.name]),
-                len(filter(lambda n: n.flavor == flavor.name,
-                           test_env['nodes'])))
+                len(list(filter(lambda n: n.flavor == flavor.name,
+                                test_env['nodes']))))
 
     @mock.patch.object(sps.LOG, 'error')
     def test_segregate_nodes_node_with_unrecognized_flavor(self,
@@ -142,19 +142,23 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
     def _test_proportion_goal_versus_flavor(self, strat, directives, nodes,
                                             flavor):
         print("Testing flavor %s." % flavor.name)
-        flavor_nodes = filter(lambda node: flavor.is_flavor_node(node), nodes)
+        flavor_nodes = list(filter(lambda node: flavor.is_flavor_node(node),
+                                   nodes))
         unprovisioned_node_count = len(sps.unprovisioned_nodes(flavor_nodes))
         available_node_count = len(sps.nodes_available_for_caching(
             flavor_nodes))
-        cached_node_count = len(filter(lambda node: node.cached, flavor_nodes))
+        cached_node_count = len(list(filter(lambda node: node.cached,
+                                            flavor_nodes)))
         if directives:
             cache_directive_count = len(
-                filter(
-                    lambda directive: (
-                        isinstance(directive, sb.CacheNode) and
-                        flavor.is_flavor_node(sb.NodeInput(directive.node_uuid,
-                                                           '?'))),
-                    directives))
+                list(filter(
+                        lambda directive: (
+                            isinstance(directive, sb.CacheNode) and
+                            flavor.is_flavor_node(
+                                sb.NodeInput(directive.node_uuid, '?'))),
+                        directives)
+                    )
+                )
         else:
             cache_directive_count = 0
         self.assertTrue(
@@ -212,8 +216,8 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
         directives = strategy.directives()
         if len(directives) == 0:
             directives = [sb.CacheNode('a', 'b', 'c')]
-        ejection_directives = filter(
-            lambda direct: isinstance(direct, sb.EjectNode), directives)
+        ejection_directives = list(filter(
+            lambda direct: isinstance(direct, sb.EjectNode), directives))
         ejected_node_uuids = sb.build_attribute_set(ejection_directives,
                                                     'node_uuid')
         for node in env['nodes']:
@@ -231,8 +235,8 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
             self.assertTrue(nodes_by_uuid[node_uuid].provisioned)
 
         # Make sure the strategy is not trying to cache to ejected nodes.
-        cache_directives = filter(
-            lambda direct: isinstance(direct, sb.CacheNode), directives)
+        cache_directives = list(filter(
+            lambda direct: isinstance(direct, sb.CacheNode), directives))
         cached_node_uuids = sb.build_attribute_set(cache_directives,
                                                    'node_uuid')
         self.assertEqual(
