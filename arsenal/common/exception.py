@@ -19,6 +19,8 @@
 
 import sys
 
+import six
+
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -57,7 +59,7 @@ class ArsenalException(Exception):
                 # kwargs doesn't match a variable in the message
                 # log the issue and the kwargs
                 LOG.exception('Exception in string format operation')
-                for name, value in kwargs.iteritems():
+                for name, value in six.iteritems(kwargs):
                     LOG.error("%s: %s" % (name, value))    # noqa
 
                 if CONF.fatal_exception_format_errors:

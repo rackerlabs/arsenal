@@ -22,6 +22,7 @@ import random
 
 from oslo_config import cfg
 from oslo_log import log
+import six
 
 from arsenal.common import exception
 from arsenal.strategy import base as sb
@@ -195,7 +196,7 @@ class SimpleProportionalStrategy(object):
         # of truly 'good' cached nodes.
         nodes_by_flavor = segregate_nodes(self.current_nodes,
                                           self.current_flavors)
-        for flavor_name, flavor_nodes in nodes_by_flavor.iteritems():
+        for flavor_name, flavor_nodes in six.iteritems(nodes_by_flavor):
             num_nodes_needed = how_many_nodes_should_cache(
                 flavor_nodes, self.percentage_to_cache)
             LOG.debug("Need to cache %(needed)d node(s) for flavor "

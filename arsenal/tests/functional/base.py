@@ -231,7 +231,7 @@ class TestCase(base.BaseTestCase):
         for each_key in config_values.keys():
             if not config.has_section(each_key):
                 config.add_section(each_key)
-            for key, value in config_values[each_key].iteritems():
+            for key, value in six.iteritems(config_values[each_key]):
                 config.set(each_key, key, value)
         f = open(file_name, 'w')
         config.write(f)
@@ -331,7 +331,7 @@ class TestCase(base.BaseTestCase):
                 count=True)
             images = self.get_onmetal_images_names_from_mimic()
             cached_image_names = (
-                [k for k, v in nodes_per_image.iteritems() if v > 0])
+                [k for k, v in six.iteritems(nodes_per_image) if v > 0])
             if sorted(images) == sorted(cached_image_names):
                 break
             time.sleep(interval_time)
@@ -371,7 +371,7 @@ class TestCase(base.BaseTestCase):
             nodes_per_image[image_name].append(node['uuid'])
         if count:
             nodes_per_image_count = collections.defaultdict(int)
-            for key, value in nodes_per_image.iteritems():
+            for key, value in six.iteritems(nodes_per_image):
                 if key:
                     nodes_per_image_count[key] = len(value)
             return nodes_per_image_count

@@ -26,6 +26,7 @@ import random
 
 import mock
 from oslo_config import cfg
+import six
 
 from arsenal.strategy import base as sb
 from arsenal.strategy import simple_proportional_strategy as sps
@@ -86,7 +87,7 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
             self.environments["random-nodes(%d)" % n_count] = environment
 
         # Defaults
-        for env_name, env_dict in self.environments.iteritems():
+        for env_name, env_dict in six.iteritems(self.environments):
             env_dict['flavors'] = sb_test.TEST_FLAVORS
             env_dict['images'] = sb_test.TEST_IMAGES
 
@@ -126,7 +127,7 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
                           test_percentage,
                           group='simple_proportional_strategy')
         strategy = sps.SimpleProportionalStrategy()
-        for env_name, env in self.environments.iteritems():
+        for env_name, env in six.iteritems(self.environments):
             print("Testing %s environment." % env_name)
             strategy.update_current_state(**env)
             directives = strategy.directives()
@@ -198,7 +199,7 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
 
     def test_node_ejection_behavior(self):
         """Perform the ejection test for all test environments."""
-        for env_name, env in self.environments.iteritems():
+        for env_name, env in six.iteritems(self.environments):
             print("Testing ejection behavior for '%s'." % env_name)
             self._ejection_test(env)
 

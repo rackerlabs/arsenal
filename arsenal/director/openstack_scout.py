@@ -19,6 +19,7 @@ import copy
 
 from oslo_config import cfg
 from oslo_log import log
+import six
 
 from arsenal.common import exception as exc
 from arsenal.director import scout
@@ -79,7 +80,7 @@ def resolve_flavor(ironic_node, known_flavors=None):
 
     # Otherwise use known flavor hueristics to try identifying the flavor.
     if known_flavors is not None:
-        for flavor, ident_func in known_flavors.iteritems():
+        for flavor, ident_func in six.iteritems(known_flavors):
             if ident_func(ironic_node):
                 return flavor
 

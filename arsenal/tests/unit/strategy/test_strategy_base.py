@@ -30,6 +30,7 @@ import tempfile
 
 import mock
 from oslo_config import cfg
+import six
 
 from arsenal.strategy import base as sb
 from arsenal.tests.unit import base as test_base
@@ -252,7 +253,7 @@ class TestImageWeights(test_base.TestCase):
             'Minix': 4
         }
         self.IMAGE_WEIGHT_SUM = sum(
-            [w for i, w in self.WEIGHTED_IMAGES.iteritems()])
+            [w for i, w in six.iteritems(self.WEIGHTED_IMAGES)])
         self.EJECTION_IMAGES = [
             sb.ImageInput('Ubuntu', "aaaa", "abcd"),
             sb.ImageInput('CoreOS', "bbbb", "efgh"),
@@ -359,7 +360,7 @@ class TestImageWeights(test_base.TestCase):
         random_image_names = ['bunch', 'of', 'random', 'image', 'names']
         weights_by_name = sb.get_image_weights(random_image_names)
         self.assertItemsEqual(weights_by_name.keys(), random_image_names)
-        for key, value in weights_by_name.iteritems():
+        for key, value in six.iteritems(weights_by_name):
             self.assertEqual(CONF.strategy.default_image_weight, value)
 
     def test_determine_image_distribution(self):
@@ -436,7 +437,7 @@ class TestImageWeights(test_base.TestCase):
             test_scenarios['%d-random scenario' % (num_nodes)] = new_scenario
 
         # Now test each scenario.
-        for name, values in test_scenarios.iteritems():
+        for name, values in six.iteritems(test_scenarios):
             print("Testing against '%s' scenario." % (name))
             picked_images = sb.choose_weighted_images_forced_distribution(
                 **values)
@@ -517,17 +518,17 @@ class TestImageWeights(test_base.TestCase):
                              'CoreOS': 1},
         }
 
-        for env_name, image_offsets in test_envs.iteritems():
+        for env_name, image_offsets in six.iteritems(test_envs):
             print("Testing '%(name)s' on image_weight_guided_ejection." % {
                   'name': env_name})
             nodes = []
 
             image_frequencies = copy.deepcopy(self.WEIGHTED_IMAGES)
-            for image_name, offset in image_offsets.iteritems():
+            for image_name, offset in six.iteritems(image_offsets):
                 image_frequencies[image_name] += offset
 
             # Construct a set of nodes with the desired frequency
-            for image_name, frequency in image_frequencies.iteritems():
+            for image_name, frequency in six.iteritems(image_frequencies):
                 image = self.EJECTION_IMAGES_BY_NAME[image_name]
                 for n in range(0, frequency):
                     nodes.append(
@@ -542,7 +543,8 @@ class TestImageWeights(test_base.TestCase):
                 eject_frequencies[image.name] += 1
 
             eject_frequency_list = (
-                [(key, value) for key, value in eject_frequencies.iteritems()])
+                [(key, value) for key, value in
+                  six.iteritems(eject_frequencies)])
 
             eject_frequency_list.sort(key=lambda pair: pair[1])
 
@@ -553,7 +555,7 @@ class TestImageWeights(test_base.TestCase):
                 self.assertEqual(0, len(image_offsets))
                 return
 
-            named_offsets = [(n, o) for n, o in image_offsets.iteritems()]
+            named_offsets = [(n, o) for n, o in six.iteritems(image_offsets)]
             sorted_offsets = sorted(named_offsets, key=lambda pair: pair[1])
 
             expected_sorted_ejection_list = (
@@ -601,7 +603,7 @@ class TestImageWeights(test_base.TestCase):
             sb.choose_weighted_images_forced_distribution(**test_scenario))
 
         # Make sure no images were picked with a zero weight.
-        expected_names = [name for name, weight in image_weights.iteritems()
+        expected_names = [name for name, weight in six.iteritems(image_weights)
                           if weight > 0]
         for image in picked_images:
             self.assertIn(image.name, expected_names,
