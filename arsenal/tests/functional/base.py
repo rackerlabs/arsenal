@@ -14,7 +14,7 @@
 #    under the License.
 
 import collections
-import ConfigParser
+from six.moves import configparser
 import json
 import math
 import os
@@ -227,7 +227,7 @@ class TestCase(base.BaseTestCase):
         """Given `config_values` object set the values in the
         arsensal.conf file.
         """
-        config = ConfigParser.RawConfigParser()
+        config = configparser.RawConfigParser()
         for each_key in config_values.keys():
             if not config.has_section(each_key):
                 config.add_section(each_key)
