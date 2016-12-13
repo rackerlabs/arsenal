@@ -320,7 +320,7 @@ class TestImageWeights(test_base.TestCase):
         temp_image_weights_file = tempfile.NamedTemporaryFile()
         test_weights = {'the_final_countdown': 5,
                         'the_man_who_sold_the_world': 10}
-        temp_image_weights_file.write(json.dumps(test_weights))
+        temp_image_weights_file.write(six.b(json.dumps(test_weights)))
         temp_image_weights_file.flush()
         CONF.set_override('image_weights_filename',
                           temp_image_weights_file.name, 'strategy')
@@ -335,7 +335,7 @@ class TestImageWeights(test_base.TestCase):
         temp_image_weights_file = tempfile.NamedTemporaryFile()
         test_weights = {'the_final_countdown': 5,
                         'the_man_who_sold_the_world': 10}
-        temp_image_weights_file.write(json.dumps(test_weights))
+        temp_image_weights_file.write(six.b(json.dumps(test_weights)))
         temp_image_weights_file.flush()
         CONF.set_override('image_weights_filename',
                           temp_image_weights_file.name, 'strategy')
