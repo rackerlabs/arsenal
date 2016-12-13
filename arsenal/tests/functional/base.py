@@ -25,6 +25,7 @@ import time
 
 from oslotest import base
 import requests
+import six
 
 DEFAULT_IMAGE_WEIGHTS = {
     'OnMetal - CentOS 6': 80,
@@ -110,8 +111,9 @@ class TestCase(base.BaseTestCase):
         self.processes_to_terminate.append(p)
         while True:
             line = p.stdout.readline()
-            if ((line == '' and p.poll() is not None) or  # process done
-                    "Starting factory <twisted.web.server.Site instance"
+            print(line, type(line))
+            if ((line == six.b('') and p.poll() is not None) or  # process done
+                    six.b("Starting factory <twisted.web.server.Site instance")
                     in line):
                 break
 
@@ -152,7 +154,7 @@ class TestCase(base.BaseTestCase):
 
     def setup_temp_image_weight_file(self, image_weights):
         tmpfile = tempfile.NamedTemporaryFile()
-        tmpfile.write(json.dumps(image_weights))
+        tmpfile.write(six.b(json.dumps(image_weights)))
         tmpfile.flush()
 
         return tmpfile

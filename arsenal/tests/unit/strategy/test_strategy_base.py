@@ -272,7 +272,7 @@ class TestImageWeights(test_base.TestCase):
         sb._load_image_weights_file.loaded = False
 
         temp_image_weights_file = tempfile.NamedTemporaryFile()
-        temp_image_weights_file.write(json.dumps(self.WEIGHTED_IMAGES))
+        temp_image_weights_file.write(six.b(json.dumps(self.WEIGHTED_IMAGES)))
         temp_image_weights_file.flush()
         CONF.set_override('image_weights_filename',
                           temp_image_weights_file.name, 'strategy')
