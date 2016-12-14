@@ -195,7 +195,7 @@ class OpenstackScout(scout.Scout):
                         "%(memory)s",
                         {'flavor_id': flavor.id,
                          'memory': flavor.ram})
-        return map(self.curried_convert_nova_flavor, flavor_list)
+        return list(map(self.curried_convert_nova_flavor, flavor_list))
 
     def retrieve_image_data(self):
         """Get information about images to pass to a CachingStrategy object.
@@ -203,7 +203,7 @@ class OpenstackScout(scout.Scout):
         """
         self.glance_data = list(filter(self.image_filter,
                                   self.glance_client.call("images.list")))
-        return map(convert_glance_image, self.glance_data)
+        return list(map(convert_glance_image, self.glance_data))
 
     def issue_action(self, action):
         # TODO(ClifHouck) I know type-testing is generally not a good pattern,

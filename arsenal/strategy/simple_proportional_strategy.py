@@ -191,7 +191,7 @@ class SimpleProportionalStrategy(object):
         todo.extend(
             eject_nodes(
                 self.current_nodes,
-                map(lambda image: image.uuid, self.current_images)))
+                list(map(lambda image: image.uuid, self.current_images))))
 
         # Once bad cached nodes have been ejected, determine the proportion
         # of truly 'good' cached nodes.
