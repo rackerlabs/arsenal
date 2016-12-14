@@ -19,10 +19,9 @@
 
 import sys
 
-import six
-
 from oslo_config import cfg
 from oslo_log import log as logging
+import six
 
 LOG = logging.getLogger(__name__)
 

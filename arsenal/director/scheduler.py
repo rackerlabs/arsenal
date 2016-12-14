@@ -123,7 +123,7 @@ def rate_limit_directives(rate_limiter, directives, name, identity_func):
             LOG.info("Got %(num)d %(name)s directives from the strategy.",
                      {'num': len(filtered_directives), 'name': name})
             other_directives = list(filter(lambda d: not identity_func(d),
-                                      directives))
+                                    directives))
             rate_limiter.add_items(filtered_directives)
             rate_limited_directives = rate_limiter.withdraw_items()
             LOG.info("Limited %(name)s directives issued to %(num)d, due to "

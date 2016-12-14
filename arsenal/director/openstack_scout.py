@@ -174,14 +174,14 @@ class OpenstackScout(scout.Scout):
         """
         node_list = self.ironic_client.call("node.list", limit=0, detail=True)
         return list(filter(lambda n: n is not None,
-                      map(self.curried_convert_ironic_node, node_list)))
+                    map(self.curried_convert_ironic_node, node_list)))
 
     def retrieve_flavor_data(self):
         """Get information about flavors to pass to a CachingStrategy object.
 
         """
         flavor_list = list(filter(self.flavor_filter,
-                             self.nova_client.call("flavors.list")))
+                           self.nova_client.call("flavors.list")))
         unknown_flavors = list(filter(
             lambda f: self.known_flavors.get(f.id) is None, flavor_list))
         for flavor in unknown_flavors:
@@ -202,7 +202,7 @@ class OpenstackScout(scout.Scout):
 
         """
         self.glance_data = list(filter(self.image_filter,
-                                  self.glance_client.call("images.list")))
+                                       self.glance_client.call("images.list")))
         return list(map(convert_glance_image, self.glance_data))
 
     def issue_action(self, action):

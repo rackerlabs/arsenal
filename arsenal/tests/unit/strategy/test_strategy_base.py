@@ -543,8 +543,7 @@ class TestImageWeights(test_base.TestCase):
                 eject_frequencies[image.name] += 1
 
             eject_frequency_list = (
-                [(key, value) for key, value in
-                  six.iteritems(eject_frequencies)])
+                [(k, v) for k, v in six.iteritems(eject_frequencies)])
 
             eject_frequency_list.sort(key=lambda pair: pair[1])
 

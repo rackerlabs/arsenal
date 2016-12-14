@@ -14,7 +14,6 @@
 #    under the License.
 
 import collections
-from six.moves import configparser
 import json
 import math
 import os
@@ -26,6 +25,7 @@ import time
 from oslotest import base
 import requests
 import six
+from six.moves import configparser
 
 DEFAULT_IMAGE_WEIGHTS = {
     'OnMetal - CentOS 6': 80,
@@ -143,8 +143,8 @@ class TestCase(base.BaseTestCase):
         self.processes_to_terminate.append(a)
         while True:
             line = a.stdout.readline()
-            if ((line == '' and a.poll() is not None) or  # process done
-                 six.b(service_status) in line):
+            if ((line == '' and a.poll() is not None) or
+                 six.b(service_status) in line):  # noqa 127
                 break
 
     def generate_config_file_name(self, name='test'):

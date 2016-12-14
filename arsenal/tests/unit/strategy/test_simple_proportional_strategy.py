@@ -151,14 +151,11 @@ class TestSimpleProportionalStrategy(test_base.TestCase):
                                             flavor_nodes)))
         if directives:
             cache_directive_count = len(
-                list(filter(
-                        lambda directive: (
+                list(filter(lambda directive:
                             isinstance(directive, sb.CacheNode) and
                             flavor.is_flavor_node(
-                                sb.NodeInput(directive.node_uuid, '?'))),
-                        directives)
-                    )
-                )
+                                sb.NodeInput(directive.node_uuid, '?')),
+                            directives)))
         else:
             cache_directive_count = 0
         self.assertTrue(
