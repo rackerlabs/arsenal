@@ -113,7 +113,7 @@ class TestCase(base.BaseTestCase):
             line = p.stdout.readline()
             print(line, type(line))
             if ((line == six.b('') and p.poll() is not None) or  # process done
-                    six.b("Starting factory <twisted.web.server.Site instance")
+                    six.b("Starting factory <twisted.web.server.Site")
                     in line):
                 break
 
@@ -144,7 +144,7 @@ class TestCase(base.BaseTestCase):
         while True:
             line = a.stdout.readline()
             if ((line == '' and a.poll() is not None) or  # process done
-                    service_status in line):
+                 six.b(service_status) in line):
                 break
 
     def generate_config_file_name(self, name='test'):
