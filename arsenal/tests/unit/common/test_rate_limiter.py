@@ -71,7 +71,7 @@ class RateLimiterTestCase(test_base.TestCase):
 
         # We should've gotten the first ten items back.
         return_list = rl_obj.withdraw_items()
-        self.assertEqual(range(0, 10), return_list)
+        self.assertEqual(list(range(0, 10)), return_list)
         self.assertEqual(95, len(rl_obj))
 
         # Now we should only get the empty list back.
@@ -88,7 +88,7 @@ class RateLimiterTestCase(test_base.TestCase):
             rl_obj._start_new_limit_period()
             return_list = rl_obj.withdraw_items()
             item_count -= item_limit
-            self.assertEqual(range(item_start, item_end), return_list)
+            self.assertEqual(list(range(item_start, item_end)), return_list)
             self.assertEqual(item_count, len(rl_obj))
             item_start += item_limit
             item_end += item_limit
@@ -96,7 +96,7 @@ class RateLimiterTestCase(test_base.TestCase):
         # Now we should only get 5 back.
         rl_obj._start_new_limit_period()
         return_list = rl_obj.withdraw_items()
-        self.assertEqual(range(100, 105), return_list)
+        self.assertEqual(list(range(100, 105)), return_list)
         self.assertEqual(0, len(rl_obj))
         self.assertEqual(5, rl_obj.current_count)
 

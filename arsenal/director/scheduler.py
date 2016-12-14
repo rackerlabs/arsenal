@@ -234,6 +234,7 @@ class DirectorScheduler(periodic_task.PeriodicTasks):
             return
         else:
             LOG.info("Issuing all directives through configured scout.")
-            map(self.scout.issue_action, directives)
+            for directive in directives:
+                self.scout.issue_action(directive)
 
         LOG.info("Finished issuing directives.")
