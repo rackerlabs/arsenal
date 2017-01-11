@@ -22,6 +22,7 @@ import random
 
 from oslo_config import cfg
 from oslo_log import log
+import six
 
 from arsenal.common import exception
 from arsenal.strategy import base as sb
@@ -48,15 +49,16 @@ CONF.register_opts(opts, sps_group)
 
 
 def nodes_available_for_caching(nodes):
-    return filter(lambda node: node.can_cache(), nodes)
+    return list(filter(lambda node: node.can_cache(), nodes))
 
 
 def cached_nodes(nodes):
-    return filter(lambda node: not node.provisioned and node.cached, nodes)
+    return list(filter(lambda node: not node.provisioned and node.cached,
+                       nodes))
 
 
 def unprovisioned_nodes(nodes):
-    return filter(lambda node: not node.provisioned, nodes)
+    return list(filter(lambda node: not node.provisioned, nodes))
 
 
 def segregate_nodes(nodes, flavors):
@@ -189,13 +191,13 @@ class SimpleProportionalStrategy(object):
         todo.extend(
             eject_nodes(
                 self.current_nodes,
-                map(lambda image: image.uuid, self.current_images)))
+                list(map(lambda image: image.uuid, self.current_images))))
 
         # Once bad cached nodes have been ejected, determine the proportion
         # of truly 'good' cached nodes.
         nodes_by_flavor = segregate_nodes(self.current_nodes,
                                           self.current_flavors)
-        for flavor_name, flavor_nodes in nodes_by_flavor.iteritems():
+        for flavor_name, flavor_nodes in six.iteritems(nodes_by_flavor):
             num_nodes_needed = how_many_nodes_should_cache(
                 flavor_nodes, self.percentage_to_cache)
             LOG.debug("Need to cache %(needed)d node(s) for flavor "

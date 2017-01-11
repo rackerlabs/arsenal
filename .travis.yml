@@ -1,14 +1,8 @@
 language: python
-python: 2.7
-# FIXME(ClifHouck): Currently skipping functional tests in Travis, 
-# by using the travis_py27 tox target, because they are broken there, but
-# always pass locally. Needs investigation into issue #77. 
-env:
-  - TOX_ENV=py27
-  - TOX_ENV=pep8
-install:
-  - pip install tox
-script:
-  - tox -vv -e $TOX_ENV
+python: 
+  - "2.7"
+  - "3.5"
+install: pip install tox-travis
+script: tox 
 notifications:
   email: false

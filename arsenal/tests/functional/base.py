@@ -14,7 +14,6 @@
 #    under the License.
 
 import collections
-import ConfigParser
 import json
 import math
 import os
@@ -25,6 +24,8 @@ import time
 
 from oslotest import base
 import requests
+import six
+from six.moves import configparser
 
 DEFAULT_IMAGE_WEIGHTS = {
     'OnMetal - CentOS 6': 80,
@@ -110,8 +111,9 @@ class TestCase(base.BaseTestCase):
         self.processes_to_terminate.append(p)
         while True:
             line = p.stdout.readline()
-            if ((line == '' and p.poll() is not None) or  # process done
-                    "Starting factory <twisted.web.server.Site instance"
+            print(line, type(line))
+            if ((line == six.b('') and p.poll() is not None) or  # process done
+                    six.b("Starting factory <twisted.web.server.Site")
                     in line):
                 break
 
@@ -141,8 +143,8 @@ class TestCase(base.BaseTestCase):
         self.processes_to_terminate.append(a)
         while True:
             line = a.stdout.readline()
-            if ((line == '' and a.poll() is not None) or  # process done
-                    service_status in line):
+            if ((line == '' and a.poll() is not None) or
+                 six.b(service_status) in line):  # noqa 127
                 break
 
     def generate_config_file_name(self, name='test'):
@@ -152,7 +154,7 @@ class TestCase(base.BaseTestCase):
 
     def setup_temp_image_weight_file(self, image_weights):
         tmpfile = tempfile.NamedTemporaryFile()
-        tmpfile.write(json.dumps(image_weights))
+        tmpfile.write(six.b(json.dumps(image_weights)))
         tmpfile.flush()
 
         return tmpfile
@@ -227,11 +229,11 @@ class TestCase(base.BaseTestCase):
         """Given `config_values` object set the values in the
         arsensal.conf file.
         """
-        config = ConfigParser.RawConfigParser()
+        config = configparser.RawConfigParser()
         for each_key in config_values.keys():
             if not config.has_section(each_key):
                 config.add_section(each_key)
-            for key, value in config_values[each_key].iteritems():
+            for key, value in six.iteritems(config_values[each_key]):
                 config.set(each_key, key, value)
         f = open(file_name, 'w')
         config.write(f)
@@ -331,7 +333,7 @@ class TestCase(base.BaseTestCase):
                 count=True)
             images = self.get_onmetal_images_names_from_mimic()
             cached_image_names = (
-                [k for k, v in nodes_per_image.iteritems() if v > 0])
+                [k for k, v in six.iteritems(nodes_per_image) if v > 0])
             if sorted(images) == sorted(cached_image_names):
                 break
             time.sleep(interval_time)
@@ -371,7 +373,7 @@ class TestCase(base.BaseTestCase):
             nodes_per_image[image_name].append(node['uuid'])
         if count:
             nodes_per_image_count = collections.defaultdict(int)
-            for key, value in nodes_per_image.iteritems():
+            for key, value in six.iteritems(nodes_per_image):
                 if key:
                     nodes_per_image_count[key] = len(value)
             return nodes_per_image_count

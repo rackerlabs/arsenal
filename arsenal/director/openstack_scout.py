@@ -19,6 +19,7 @@ import copy
 
 from oslo_config import cfg
 from oslo_log import log
+import six
 
 from arsenal.common import exception as exc
 from arsenal.director import scout
@@ -79,7 +80,7 @@ def resolve_flavor(ironic_node, known_flavors=None):
 
     # Otherwise use known flavor hueristics to try identifying the flavor.
     if known_flavors is not None:
-        for flavor, ident_func in known_flavors.iteritems():
+        for flavor, ident_func in six.iteritems(known_flavors):
             if ident_func(ironic_node):
                 return flavor
 
@@ -172,17 +173,17 @@ class OpenstackScout(scout.Scout):
 
         """
         node_list = self.ironic_client.call("node.list", limit=0, detail=True)
-        return filter(lambda n: n is not None,
-                      map(self.curried_convert_ironic_node, node_list))
+        return list(filter(lambda n: n is not None,
+                    map(self.curried_convert_ironic_node, node_list)))
 
     def retrieve_flavor_data(self):
         """Get information about flavors to pass to a CachingStrategy object.
 
         """
-        flavor_list = filter(self.flavor_filter,
-                             self.nova_client.call("flavors.list"))
-        unknown_flavors = filter(
-            lambda f: self.known_flavors.get(f.id) is None, flavor_list)
+        flavor_list = list(filter(self.flavor_filter,
+                           self.nova_client.call("flavors.list")))
+        unknown_flavors = list(filter(
+            lambda f: self.known_flavors.get(f.id) is None, flavor_list))
         for flavor in unknown_flavors:
             # FIXME: This is super not going to work in general.
             # Need to rework how unknown flavors are identified in general.
@@ -194,15 +195,15 @@ class OpenstackScout(scout.Scout):
                         "%(memory)s",
                         {'flavor_id': flavor.id,
                          'memory': flavor.ram})
-        return map(self.curried_convert_nova_flavor, flavor_list)
+        return list(map(self.curried_convert_nova_flavor, flavor_list))
 
     def retrieve_image_data(self):
         """Get information about images to pass to a CachingStrategy object.
 
         """
-        self.glance_data = filter(self.image_filter,
-                                  self.glance_client.call("images.list"))
-        return map(convert_glance_image, self.glance_data)
+        self.glance_data = list(filter(self.image_filter,
+                                       self.glance_client.call("images.list")))
+        return list(map(convert_glance_image, self.glance_data))
 
     def issue_action(self, action):
         # TODO(ClifHouck) I know type-testing is generally not a good pattern,
